@@ -15,6 +15,9 @@ export type NodeData = {
   duration?: string;
   mediaType?: string;
   pendingTask?: string;
+  cost?: string;
+  generatedModel?: string;
+  generatedResolution?: string;
   compareMode?: string;
   compareSplit?: string;
   compareOutput?: string;

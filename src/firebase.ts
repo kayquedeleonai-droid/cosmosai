@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDocs, collection, serverTimestamp, runTransaction } from 'firebase/firestore';
 const config = { apiKey: import.meta.env.VITE_FIREBASE_API_KEY, authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID, appId: import.meta.env.VITE_FIREBASE_APP_ID };
 export const configured = Object.values(config).every(Boolean);
 const app = configured ? initializeApp(config) : null;
@@ -31,16 +31,36 @@ export function authMessage(error: unknown) {
   };
   return messages[code || ''] || 'Não foi possível entrar agora. Tente novamente.';
 }
-export async function saveCloud(id: string, name: string, graph: string) {
-  if (!db || !auth?.currentUser) throw new Error('Entre com Google para salvar na nuvem.');
-  if (new TextEncoder().encode(graph).length > 650000) throw new Error('Projeto grande para a nuvem. Exporte um backup local.');
-  await setDoc(doc(db, 'users', auth.currentUser.uid, 'projects', id), { name, graph, updatedAt: serverTimestamp() });
+const cloudVersions=new Map<string,string>();
+const saveQueues=new Map<string,Promise<void>>();
+export async function saveCloud(id:string,name:string,graph:string){
+ if(!db||!auth?.currentUser)throw new Error('Entre para salvar na nuvem.');
+ if(new TextEncoder().encode(graph).length>650000)throw new Error('Projeto grande para a nuvem. Exporte um backup local.');
+ const uid=auth.currentUser.uid,key=uid+'/'+id,ref=doc(db,'users',uid,'projects',id);
+ const prior=saveQueues.get(key)||Promise.resolve();
+ const pending=prior.catch(()=>{}).then(async()=>{
+  if(auth?.currentUser?.uid!==uid)throw new Error('A conta mudou; salvamento interrompido.');
+  await runTransaction(db!,async tx=>{
+   const current=await tx.get(ref),old=current.data();
+   if(old?.graph===graph)return;
+   if(old&&old.graph!==cloudVersions.get(key))throw new Error('Conflito: outra aba ou dispositivo alterou este workflow. Exporte sua versão antes de atualizar a nuvem.');
+   if(old)tx.set(doc(db!,'users',uid,'projects',id,'versions',String(Math.floor(Date.now()/300000)%10)),{name:old.name,graph:old.graph,updatedAt:serverTimestamp()});
+   tx.set(ref,{name,graph,updatedAt:serverTimestamp()});
+  });
+  cloudVersions.set(key,graph);
+ });
+ saveQueues.set(key,pending);try{await pending;}finally{if(saveQueues.get(key)===pending)saveQueues.delete(key);}
+}
+export async function listCloudVersions(id:string){
+ if(!db||!auth?.currentUser)throw new Error('Entre para consultar versões.');
+ return (await getDocs(collection(db,'users',auth.currentUser.uid,'projects',id,'versions'))).docs.map(d=>({id:d.id,...d.data()})) as {id:string;graph:string;name:string}[];
 }
 export async function listCloud() {
   if (!db || !auth?.currentUser) throw new Error('Entre com Google para abrir seus projetos.');
   return (await getDocs(collection(db, 'users', auth.currentUser.uid, 'projects'))).docs.map(d => {
     const data = d.data();
     if (typeof data.graph !== 'string') throw new Error('Um workflow na nuvem está em formato inválido.');
+    cloudVersions.set(auth!.currentUser!.uid+'/'+d.id,data.graph);
     return { id: d.id, graph: data.graph };
   });
 }

@@ -1,63 +1,113 @@
 import {buildTask,readResult} from '../src/runware-models.mjs';
-import {verifyUser} from './auth.mjs';
+import {estimateCost} from '../src/pricing.mjs';
+import {verifyIdentity} from './auth.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export default {async fetch(request,env){
-  const origin=request.headers.get('Origin');
-  const allowed=(env.ALLOWED_ORIGINS||'').split(',').includes(origin);
+const spent="CASE WHEN actual IS NOT NULL THEN actual ELSE reserved END";
+const day=()=>new Date().toISOString().slice(0,10);
+export default {
+ async scheduled(event,env,ctx){ctx.waitUntil(recoverJobs(env));},
+ async fetch(request,env){
+  const origin=request.headers.get('Origin'),allowed=(env.ALLOWED_ORIGINS||'').split(',').includes(origin);
   const headers={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin',...(allowed?{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Authorization,Content-Type','Access-Control-Allow-Methods':'POST,OPTIONS','Access-Control-Max-Age':'3600'}:{})};
   const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers});
   if(!allowed)return reply({error:'Origem não autorizada.'},403);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   if(request.method!=='POST')return reply({error:'Método não permitido.'},405);
-  if(!env.RUNWARE_API_KEY||!env.DB)return reply({error:'A conexão Runware ainda está sendo configurada.'},503);
-  let uid;
-  try{uid=await verifyUser(request.headers.get('Authorization')?.replace(/^Bearer /,''),env.FIREBASE_PROJECT_ID);}catch(e){return reply({error:e.message},401);}
+  if(!env.DB)return reply({error:'Serviço indisponível.'},503);
+  let identity;
+  try{identity=await verifyIdentity(request.headers.get('Authorization')?.replace(/^Bearer /,''),env.FIREBASE_PROJECT_ID);}catch(e){return reply({error:e.message},401);}
+  const {uid}=identity,isAdmin=uid===env.ADMIN_UID&&identity.verified;
   try{
-    // Bound the stream before parsing; Content-Length alone is not trustworthy.
-    const reader=request.body?.getReader();if(!reader)return reply({error:'Requisição vazia.'},400);
-    const chunks=[];let length=0;
-    while(true){const {value,done}=await reader.read();if(done)break;length+=value.length;if(length>2200000){await reader.cancel();return reply({error:'Referência muito grande.'},413);}chunks.push(value);}
-    const bytes=new Uint8Array(length);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}
-    let input;try{input=JSON.parse(new TextDecoder().decode(bytes));}catch{return reply({error:'JSON inválido.'},400);}
-    if(!uuid.test(input.requestId))return reply({error:'Identificador inválido.'},400);
-    const path=new URL(request.url).pathname;
-    if(!['/generate','/status'].includes(path))return reply({error:'Endpoint inválido.'},404);
-    let job=await env.DB.prepare('SELECT * FROM jobs WHERE id = ?').bind(input.requestId).first();
-    if(job&&job.uid!==uid)return reply({error:'Geração não encontrada.'},404);
-    let task;
-    if(path==='/generate'){
-      try{task=buildTask(input,input.requestId);}catch(e){return reply({error:e.message},400);}
-      const signature=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(task)))),b=>b.toString(16).padStart(2,'0')).join('');
-      if(job&&job.signature!==signature)return reply({error:'Este identificador já pertence a outra geração.'},409);
-      if(!job){
-        const units=task.taskType==='videoInference'?10:1,day=new Date().toISOString().slice(0,10),now=Date.now();
-        const userLimit=Number(env.USER_DAILY_UNITS)||10,globalLimit=Number(env.GLOBAL_DAILY_UNITS)||20;
-        // A single SQLite write serializes budget reservations, including concurrent requests.
-        const reservation=await env.DB.prepare(`INSERT OR IGNORE INTO jobs(id,uid,day,units,signature,created) SELECT ?,?,?,?,?,? WHERE
-          (SELECT COALESCE(SUM(units),0) FROM jobs WHERE day=? AND uid=?)+?<=? AND
-          (SELECT COALESCE(SUM(units),0) FROM jobs WHERE day=?)+?<=?`).bind(input.requestId,uid,day,units,signature,now,day,uid,units,userLimit,day,units,globalLimit).run();
-        if(!reservation.meta.changes){job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();if(!job)return reply({error:'Limite diário de geração atingido. Tente novamente amanhã.'},429);if(job.uid!==uid||job.signature!==signature)return reply({error:'Identificador já utilizado.'},409);}
-        else {
-          // Never retry creation automatically: a lost response may still represent a paid job.
-          let result;
-          try{result=await callRunware(task,env.RUNWARE_API_KEY);}catch{return reply({state:'processing',requestId:input.requestId,message:'Pedido enviado. Consulte o estado para evitar cobrança duplicada.'});}
-          await saveResult(env,input.requestId,result);
-          return reply({...result,requestId:input.requestId});
-        }
-      }
+   const reader=request.body?.getReader();if(!reader)return reply({error:'Requisição vazia.'},400);
+   const chunks=[];let length=0;
+   while(true){const {value,done}=await reader.read();if(done)break;length+=value.length;if(length>2200000){await reader.cancel();return reply({error:'Referência muito grande.'},413);}chunks.push(value);}
+   const bytes=new Uint8Array(length);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}
+   let input;try{input=JSON.parse(new TextDecoder().decode(bytes));if(!input||typeof input!=='object'||Array.isArray(input))throw 0;}catch{return reply({error:'JSON inválido.'},400);}
+   const path=new URL(request.url).pathname;
+   let account=await env.DB.prepare('SELECT * FROM accounts WHERE uid=?').bind(uid).first();
+   if(!account||path==='/me'){
+    await env.DB.prepare("INSERT INTO accounts(uid,email,name,status,created,last_seen) VALUES(?,?,?,?,?,?) ON CONFLICT(uid) DO UPDATE SET email=excluded.email,name=excluded.name,last_seen=excluded.last_seen").bind(uid,identity.email.slice(0,320),identity.name.slice(0,120),isAdmin?'active':'pending',Date.now(),Date.now()).run();
+    account=await env.DB.prepare('SELECT * FROM accounts WHERE uid=?').bind(uid).first();
+   }
+   if(path==='/me')return reply({account,isAdmin,verified:identity.verified,storage:false});
+   if(path.startsWith('/admin/')){
+    if(!isAdmin)return reply({error:'Acesso exclusivo do administrador.'},403);
+    if(path==='/admin/users'){
+     const offset=Number.isInteger(input.offset)&&input.offset>=0?Math.min(input.offset,100000):0;
+     const users=await env.DB.prepare(`SELECT a.*, (SELECT COALESCE(SUM(${spent}),0) FROM jobs j WHERE j.uid=a.uid AND j.day=?) AS today_usd,(SELECT COUNT(*) FROM jobs j WHERE j.uid=a.uid) AS generations FROM accounts a ORDER BY created DESC,uid LIMIT 50 OFFSET ?`).bind(day(),offset).all();
+     const settings=await env.DB.prepare('SELECT * FROM settings WHERE id=1').first();
+     const total=await env.DB.prepare('SELECT COUNT(*) AS count FROM accounts').first();
+     const usage=await env.DB.prepare(`SELECT COALESCE(SUM(actual),0) AS actual_usd,COALESCE(SUM(${spent}),0) AS committed_usd,COUNT(*) AS jobs FROM jobs WHERE day=?`).bind(day()).first();
+     return reply({users:users.results,total:total.count,settings,usage});
     }
-    if(!job)return reply({error:'Geração não encontrada.'},404);
-    if(job.result)return reply({...JSON.parse(job.result),requestId:job.id});
-    const locked=await env.DB.prepare('UPDATE jobs SET polled=? WHERE id=? AND polled<?').bind(Date.now(),job.id,Date.now()-4500).run();
-    if(!locked.meta.changes)return reply({state:'processing',requestId:job.id});
-    const result=await callRunware({taskType:'getResponse',taskUUID:job.id},env.RUNWARE_API_KEY);
-    await saveResult(env,job.id,result);return reply({...result,requestId:job.id});
-  }catch{return reply({error:'Falha temporária ao consultar a geração. Tente consultar novamente.'},502);}
-}};
+    if(path==='/admin/account'){
+     if(typeof input.uid!=='string'||!['active','pending','blocked'].includes(input.status)||typeof input.daily_usd!=='number'||!Number.isFinite(input.daily_usd)||input.daily_usd<0||input.daily_usd>1000)return reply({error:'Configuração inválida.'},400);
+     if(input.uid===env.ADMIN_UID&&input.status!=='active')return reply({error:'A conta proprietária não pode ser bloqueada.'},400);
+     const changed=await env.DB.prepare('UPDATE accounts SET status=?,daily_usd=? WHERE uid=?').bind(input.status,input.daily_usd,input.uid).run();
+     if(!changed.meta.changes)return reply({error:'Conta não encontrada.'},404);
+     await audit(env,uid,input.uid,JSON.stringify({status:input.status,daily_usd:input.daily_usd}));
+     return reply({ok:true});
+    }
+    if(path==='/admin/settings'){
+     if(typeof input.daily_usd!=='number'||!Number.isFinite(input.daily_usd)||input.daily_usd<0||input.daily_usd>10000||typeof input.paused!=='boolean')return reply({error:'Configuração inválida.'},400);
+     await env.DB.prepare('UPDATE settings SET daily_usd=?,paused=? WHERE id=1').bind(input.daily_usd,Number(input.paused)).run();
+     await audit(env,uid,'global',JSON.stringify(input));return reply({ok:true});
+    }
+    return reply({error:'Endpoint inválido.'},404);
+   }
+   if(path==='/history'){
+    const offset=Number.isInteger(input.offset)&&input.offset>=0?Math.min(input.offset,100000):0;
+    const jobs=await env.DB.prepare('SELECT id,state,result,created,model,metadata,reserved,actual,projectId,nodeId FROM jobs WHERE uid=? ORDER BY created DESC LIMIT 30 OFFSET ?').bind(uid,offset).all();
+    return reply({jobs:jobs.results.map(j=>({...j,result:j.result?JSON.parse(j.result):null,metadata:j.metadata?JSON.parse(j.metadata):null}))});
+   }
+   if(!['/generate','/status'].includes(path))return reply({error:'Endpoint inválido.'},404);
+   if(!uuid.test(input.requestId))return reply({error:'Identificador inválido.'},400);
+   let job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();
+   if(job&&job.uid!==uid)return reply({error:'Geração não encontrada.'},404);
+   if(!env.RUNWARE_API_KEY)return reply({error:'Runware indisponível.'},503);
+   if(path==='/generate'){
+    if(!identity.verified||(!isAdmin&&account.status!=='active'))return reply({error:!identity.verified?'Verifique seu e-mail para gerar.':account.status==='blocked'?'Gerações bloqueadas pelo administrador.':'Sua conta aguarda aprovação do administrador.'},403);
+    let task,quote;try{task=buildTask(input,input.requestId);quote=estimateCost(input);}catch(e){return reply({error:e.message},400);}
+    const signature=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(task)))),b=>b.toString(16).padStart(2,'0')).join('');
+    if(job&&job.signature!==signature)return reply({error:'Este identificador já pertence a outra geração.'},409);
+    if(!job){
+     const units=task.taskType==='videoInference'?10:1,now=Date.now(),today=day();
+     const metadata=JSON.stringify({prompt:input.prompt,ratio:input.ratio,resolution:input.resolution,quality:input.quality,duration:input.duration,hasReference:!!input.reference,estimated:quote.usd});
+     const reservation=await env.DB.prepare(`INSERT OR IGNORE INTO jobs(id,uid,day,units,signature,created,reserved,model,metadata,projectId,nodeId) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE
+      (SELECT paused FROM settings WHERE id=1)=0 AND (SELECT status FROM accounts WHERE uid=?)='active' AND
+      (SELECT COALESCE(SUM(units),0) FROM jobs WHERE day=? AND uid=?)+?<=? AND
+      (SELECT COALESCE(SUM(units),0) FROM jobs WHERE day=?)+?<=? AND
+      (SELECT COALESCE(SUM(${spent}),0) FROM jobs WHERE day=? AND uid=?)+?<=(SELECT daily_usd FROM accounts WHERE uid=?) AND
+      (SELECT COALESCE(SUM(${spent}),0) FROM jobs WHERE day=?)+?<=(SELECT daily_usd FROM settings WHERE id=1)`).bind(input.requestId,uid,today,units,signature,now,quote.reserve,input.model,metadata,typeof input.projectId==='string'?input.projectId.slice(0,80):null,typeof input.nodeId==='string'?input.nodeId.slice(0,100):null,uid,today,uid,units,Number(env.USER_DAILY_UNITS)||10,today,units,Number(env.GLOBAL_DAILY_UNITS)||20,today,uid,quote.reserve,uid,today,quote.reserve).run();
+     if(!reservation.meta.changes){job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();if(!job)return reply({error:'Geração pausada ou limite diário atingido (orçamento ou quantidade). Consulte o administrador. Limites renovam às 00h UTC.'},429);if(job.uid!==uid||job.signature!==signature)return reply({error:'Identificador já utilizado.'},409);}
+     else{
+      let result;try{result=await callRunware(task,env.RUNWARE_API_KEY);}catch{return reply({state:'processing',requestId:input.requestId,message:'Pedido enviado. Consulte o estado para evitar cobrança duplicada.'});}
+      await saveResult(env,input.requestId,result);return reply({...result,requestId:input.requestId});
+     }
+    }
+   }
+   if(!job)return reply({error:'Geração não encontrada.'},404);
+   if(job.result)return reply({...JSON.parse(job.result),requestId:job.id});
+   const result=await pollJob(env,job);return reply({...result,requestId:job.id});
+  }catch{return reply({error:'Falha temporária. Tente consultar novamente; não reenvie uma geração pendente.'},502);}
+ }
+};
+async function audit(env,actor,target,action){await env.DB.prepare('INSERT INTO audit(actor,target,action,created) VALUES(?,?,?,?)').bind(actor,target,action,Date.now()).run();}
 async function callRunware(task,key){
-  const response=await fetch('https://api.runware.ai/v1',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify([task]),signal:AbortSignal.timeout(25000)});
-  const body=await response.json();
-  if(!response.ok&&!body.errors)throw new Error('Provedor indisponível');
-  return readResult(body,task.taskUUID);
+ const response=await fetch('https://api.runware.ai/v1',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify([task]),signal:AbortSignal.timeout(25000)});
+ const body=await response.json();if(!response.ok&&!body.errors)throw new Error('Provedor indisponível');return readResult(body,task.taskUUID);
 }
-async function saveResult(env,id,result){if(result.state!=='processing')await env.DB.prepare('UPDATE jobs SET state=?,result=? WHERE id=?').bind(result.state,JSON.stringify(result),id).run();}
+async function pollJob(env,job){
+ const locked=await env.DB.prepare('UPDATE jobs SET polled=? WHERE id=? AND polled<? AND state=?').bind(Date.now(),job.id,Date.now()-4500,'processing').run();
+ if(!locked.meta.changes)return {state:'processing'};
+ const result=await callRunware({taskType:'getResponse',taskUUID:job.id},env.RUNWARE_API_KEY);await saveResult(env,job.id,result);return result;
+}
+async function saveResult(env,id,result){
+ if(result.state==='processing')return;
+ const cost=Number.isFinite(result.cost)&&result.cost>=0?result.cost:result.state==='error'?0:null;
+ await env.DB.prepare('UPDATE jobs SET state=?,result=?,actual=? WHERE id=?').bind(result.state,JSON.stringify(result),cost,id).run();
+}
+async function recoverJobs(env){
+ const jobs=await env.DB.prepare("SELECT * FROM jobs WHERE state='processing' AND created>? ORDER BY polled ASC LIMIT 10").bind(Date.now()-48*3600000).all();
+ for(const job of jobs.results){try{await pollJob(env,job);}catch{/* Retry polling only, never creation. */}}
+}

@@ -90,3 +90,15 @@ O salvamento automático é local; Salvar na nuvem envia o workflow ao Firestore
 ## Identidade visual
 
 Interface escura com ciano e conexões magenta, baseada nas referências fornecidas. O fundo espacial é um SVG original gerado por `node scripts/create-universe.mjs`. A marca usa Orbitron; interface usa Inter, com fontes de fallback locais. Nenhuma imagem de referência é carregada de servidores externos.
+
+
+## Administração e confiabilidade
+
+- O administrador é determinado pelo UID verificado no Worker (`ADMIN_UID`), nunca por dados enviados pelo navegador. Contas novas ficam pendentes para geração. Aprovação/bloqueio afeta novas gerações; não desativa o login Firebase nem impede exportação dos workflows.
+- Admin controla orçamento diário global/por conta e pausa geral. Limites em unidades existentes continuam válidos. Dia UTC. A reserva em USD é atômica no D1 e conciliada com o custo retornado pela Runware; preços tokenizados podem exceder a reserva. Não equivale a um limite de faturamento garantido pelo provedor.
+- Histórico guarda parâmetros, identificação e custo das tarefas. Um cron a cada 2 minutos consulta até 10 tarefas pendentes das últimas 48 horas; nunca reenvia uma criação. Após 48 horas a consulta manual continua disponível.
+- Salvamento automático na nuvem após 2,5 segundos sem alterações, com verificação transacional de conflitos. Até 10 versões em slots de 5 minutos. Versões e projetos são privados ao proprietário. Restauração exporta primeiro uma cópia local.
+- Gerar um node reutiliza resultados existentes dos nodes de entrada. Gerar fluxo executa o fluxo completo. Desfazer/refazer guarda até 20 edições nesta sessão.
+- Não há armazenamento permanente de mídia: os links Runware podem expirar. Baixe resultados importantes. R2 não foi ativado.
+- Implantação existente: executar `worker/migration-002.sql` **uma única vez**, depois publicar Worker e regras Firestore antes do frontend. Instalação nova usa `worker/schema.sql` diretamente.
+- Tarifas de referência: `src/pricing.mjs`, conferidas na documentação Runware em 2026-10-10. Rever quando o fornecedor alterar valores; exemplos típicos de GPT não são cotações garantidas.

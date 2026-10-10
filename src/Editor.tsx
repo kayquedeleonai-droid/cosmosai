@@ -6,6 +6,8 @@ import { cleanProject, exportProject } from './projects';
 import { DEMO_IMAGE, type FlowNode, type Kind, type NodeData, type Project } from './types';
 import { Wordmark } from './AuthScreen';
 import { models, findModel, buildTask, availableResolutions, outputSize, switchModel, qualityOptions, durationOptions } from './runware-models.mjs';
+import {estimateCost,dollars} from './pricing.mjs';
+import {listCloudVersions} from './firebase';
 import CompareNode from './CompareNode';
 import {runwareConfigured, requestGeneration, waitGeneration} from './runware';
 
@@ -13,6 +15,8 @@ type Actions = {update:(id:string,patch:Partial<NodeData>)=>void; run:(id?:strin
 const NodeActions=createContext<Actions>({update:()=>{},run:()=>{},message:()=>{},running:false});
 const nodeTypes={studio:StudioNode};
 
+function previewCost(data:NodeData,model:string|undefined){try{return model?estimateCost({...data,model}):null;}catch{return null;}}
+function hasQuote(kind:string){return kind==='generate'||kind==='video';}
 function StudioNode({id,data,selected}:NodeProps<FlowNode>){
   const {update,run,message,running}=useContext(NodeActions);
   const meta=catalog[data.kind];
@@ -26,6 +30,7 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
   const src=data.result||data.image;
   const model=findModel(data.model||(data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'));
   const resolution=data.resolution||(data.kind==='video'?'720p':'1K');
+  const quote=hasQuote(data.kind)?previewCost(data,model?.label):null;
   const size=outputSize(model,data.ratio||(data.kind==='video'?'16:9':'1:1'),resolution);
   const isVideo=data.mediaType==='video'||data.kind==='video';
   const hasModelInputs=['generate','video'].includes(data.kind);
@@ -42,12 +47,14 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
     {data.kind==='prompt'?<><textarea aria-label="Prompt" disabled={running} className="nodrag nowheel prompt-text" value={data.prompt||''} placeholder="Descreva sua ideia para gerar imagens…" maxLength={3000} onChange={e=>update(id,{prompt:e.target.value})}/><div className="prompt-footer"><Type size={13}/><span>{data.prompt?.length||0} / 3000</span></div></>:
       data.kind==='image'?<label className="node-upload nodrag">{src?<img src={src} alt="Imagem de referência"/>:<><Upload size={25}/><strong>Adicionar imagem</strong><span>PNG, JPG ou WebP · até 1,5 MB</span></>}<input type="file" aria-label="Carregar imagem" accept="image/png,image/jpeg,image/webp" disabled={running} onChange={e=>{upload(e.target.files?.[0]);e.target.value='';}}/></label>:
       <div className={`node-preview ratio-${(data.ratio||'1:1').replace(':','-')}`}>{src?<>{isVideo?<video className="nodrag nowheel" src={src} controls preload="metadata"/>:<img src={src} alt="Resultado do workflow"/>}{src===DEMO_IMAGE&&<span className="preview-label">ILUSTRAÇÃO DEMONSTRATIVA</span>}</>:<span>{hasModelInputs?(promptConnected?'Pronto para gerar'+(imageConnected?' com imagem de referência':''):'Conecte um node Prompt à entrada rosa'):data.kind==='output'?'Conecte uma imagem para visualizar':data.kind==='upscale'?'Conecte uma imagem para ampliar':'Conecte um prompt para gerar'}</span>}{hasModelInputs&&busy&&<div className="cosmos-generating" role="status"><div className="cosmos-orbits" aria-hidden="true"><i/><i/><i/><b/></div><strong>{data.kind==='video'?'Criando seu vídeo':'Criando sua imagem'}</strong><span>{label} · {data.status==='Aguardando Runware…'?'Processando na Runware':'Enviando geração'}</span></div>}</div>}
+    {hasModelInputs&&<div className="cost-line" title="Estimativa, não preço fixo. A cobrança real pode variar por tokens e referências.">Estimativa: {quote?.variable?'referência ':''}{quote?dollars(quote.usd):'indisponível'}{data.cost&&<span>Última geração: {dollars(Number(data.cost))}</span>}</div>}
+    {data.generatedModel&&src&&<div className="result-origin">Resultado: {data.generatedModel} · {data.generatedResolution}{data.generatedModel!==model?.label?' · modelo anterior':''}</div>}
     {hasModelInputs&&<div className="generation-format">Próxima geração: {resolution} · {data.kind==='video'&&imageConnected?'Proporção do frame inicial':size?.join(' × ')+' px'}</div>}
     {hasModelInputs&&(data.status||data.pendingTask)&&<div className="generation-status" role="status">{busy&&<LoaderCircle className="spin" size={13}/>}<span>{data.status||(data.pendingTask?'Geração pendente · clique para consultar':'')}</span></div>}
     {data.kind!=='prompt'&&data.kind!=='image'&&<div className="node-controls nodrag">
       {data.kind==='generate'||data.kind==='video'?<><select className="model-select" title={model?.label} aria-label={data.kind==='video'?'Modelo de vídeo':'Modelo de imagem'} value={model?.label||''} disabled={running||!!data.pendingTask} onChange={e=>update(id,switchModel(data,e.target.value))}>{models.filter(m=>m.kind===data.kind).map(m=><option key={m.id} value={m.label}>{m.label}</option>)}</select><select aria-label="Proporção da geração" value={data.ratio||(data.kind==='video'?'16:9':'1:1')} disabled={running||(data.kind==='video'&&imageConnected)} title={data.kind==='video'&&imageConnected?'A proporção segue o frame inicial':'Proporção da geração'} onChange={e=>{const ratio=e.target.value;const options=availableResolutions(model,ratio);update(id,{ratio,resolution:options.includes(resolution)?resolution:options[0]});}}>{Object.keys(model?.sizes||{'1:1':[],'16:9':[],'9:16':[]}).map(r=><option key={r}>{r}</option>)}</select><select className="resolution-select" aria-label="Resolução da geração" title="Resolução da geração" disabled={running} value={resolution} onChange={e=>update(id,{resolution:e.target.value})}>{availableResolutions(model,data.ratio||(data.kind==='video'?'16:9':'1:1')).map(r=><option key={r} value={r}>{r}</option>)}</select>{data.kind==='video'&&<select aria-label="Duração do vídeo" value={data.duration||'4'} disabled={running} onChange={e=>update(id,{duration:e.target.value})}>{durationOptions(model).map(d=><option key={d} value={d}>{d} s</option>)}</select>}<details className="node-settings"><summary aria-label="Configurações do modelo"><Settings2 size={14}/></summary><div><strong>{label}</strong>{qualityOptions(model).length>0&&<label>Qualidade<select aria-label="Qualidade da geração" value={data.quality||'auto'} disabled={running||!!data.pendingTask} onChange={e=>update(id,{quality:e.target.value})}>{qualityOptions(model).map(q=><option key={q} value={q}>{{auto:'Automática',low:'Baixa',medium:'Média',high:'Alta',xhigh:'Muito alta',max:'Máxima'}[q as string]||q}</option>)}</select></label>}<p>Geração pela Runware. Consome créditos da conta conectada.</p><span>{resolution} · {data.kind==='video'&&imageConnected?'proporção do frame inicial':size?.join(' × ')+' px'}</span><p>Resoluções maiores podem consumir mais créditos.</p></div></details></>:<span className="node-state">{data.status|| (data.kind==='upscale'?'Demonstração · sem ampliação real':'Saída de mídia')}</span>}
       {src&&<a className="node-download" title={isVideo?'Abrir vídeo':'Abrir imagem'} aria-label={isVideo?'Abrir vídeo':'Abrir imagem'} href={src} target="_blank" rel="noreferrer" download={src===DEMO_IMAGE?'cosmos-demo.svg':isVideo?'cosmos-video.mp4':'cosmos-imagem.png'}><Download size={14}/></a>}
-      {data.kind!=='output'&&<button className="node-play" title="Gerar este node e suas entradas" aria-label={data.pendingTask?'Consultar geração pendente':'Gerar '+label} disabled={running} onClick={()=>run(id)}>{busy?<LoaderCircle className="spin" size={14}/>:<Play size={14} fill="currentColor"/>}</button>}
+      {data.kind!=='output'&&<button className="node-play" title="Gerar este node; reutilizar resultados das entradas" aria-label={data.pendingTask?'Consultar geração pendente':'Gerar '+label} disabled={running} onClick={()=>run(id)}>{busy?<LoaderCircle className="spin" size={14}/>:<Play size={14} fill="currentColor"/>}</button>}
     </div>}
   </article>;
 }
@@ -90,6 +97,9 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
     return {...edge,style:{stroke:output==='text'?'#ed3b9c':output==='video'?'#ac8bfa':'#06bdd5',strokeWidth:2,strokeDasharray:'5 8'}};
   }),[edges,nodes]);
   const [name,setName]=useState(initial.name);const [folder,setFolder]=useState(initial.folder||'');
+  const [cloudStatus,setCloudStatus]=useState(signedIn?'Aguardando sincronização':'Local');
+  const [versions,setVersions]=useState<{id:string;graph:string;name:string}[]|null>(null);
+  const cloudSaveRef=useRef(onCloudSave);cloudSaveRef.current=onCloudSave;
   const [running,setRunning]=useState(false);const runLock=useRef(false);const abortRun=useRef<AbortController|null>(null);
   useEffect(()=>()=>abortRun.current?.abort(),[]);const [saving,setSaving]=useState(false);const [saved,setSaved]=useState(true);
   const [menu,setMenu]=useState<{x:number;y:number}|null>(null);const [help,setHelp]=useState(false);
@@ -97,6 +107,44 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
   const snapshot=useMemo(()=>cleanProject({...baseline.current,name,folder,nodes,edges,updatedAt:Date.now()}),[name,folder,nodes,edges]);
   const latest=useRef(snapshot);latest.current=snapshot;
   const active=nodes.find(n=>n.selected);
+  const undoStack=useRef<Project[]>([]),redoStack=useRef<Project[]>([]),previousEdit=useRef(snapshot),historySkip=useRef(false);
+  const [,refreshHistory]=useState(0);
+  useEffect(()=>{
+    const signature=(p:Project)=>JSON.stringify({...p,updatedAt:0});
+    if(signature(snapshot)===signature(previousEdit.current))return;
+    if(historySkip.current){historySkip.current=false;previousEdit.current=snapshot;return;}
+    if(running){previousEdit.current=snapshot;return;}
+    const timer=setTimeout(()=>{undoStack.current=[...undoStack.current.slice(-19),previousEdit.current];redoStack.current=[];previousEdit.current=snapshot;refreshHistory(v=>v+1);},400);
+    return()=>clearTimeout(timer);
+  },[snapshot,running]);
+  function historyMove(redo=false){
+    if(running)return;const stack=redo?redoStack:undoStack;const p=stack.current.pop();if(!p)return;
+    (redo?undoStack:redoStack).current.push(latest.current);historySkip.current=true;
+    setNodes(p.nodes);setEdges(p.edges);setName(p.name);setFolder(p.folder||'');refreshHistory(v=>v+1);
+  }
+  useEffect(()=>{const handler=(e:KeyboardEvent)=>{if(!(e.ctrlKey||e.metaKey)||e.key.toLowerCase()!=='z')return;const t=e.target as HTMLElement;if(t.closest('input,textarea,select,[contenteditable=true]'))return;e.preventDefault();historyMove(e.shiftKey);};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);},[running]);
+
+  useEffect(()=>{
+    if(!signedIn)return;
+    setCloudStatus('Alterações locais');
+    const timer=setTimeout(()=>{const current=snapshot;setCloudStatus('Salvando na nuvem…');void cloudSaveRef.current(current).then(()=>{if(latest.current===current)setCloudStatus('Salvo na nuvem');}).catch(e=>{setCloudStatus((e as Error).message);});},2500);
+    return()=>clearTimeout(timer);
+  },[snapshot,signedIn]);
+  useEffect(()=>{
+    const flush=()=>{if(signedIn)void cloudSaveRef.current(latest.current).catch(()=>{});};
+    window.addEventListener('online',flush);return()=>window.removeEventListener('online',flush);
+  },[signedIn]);
+  useEffect(()=>{if(!signedIn)return;
+    const controller=new AbortController();
+    void (async()=>{for(const n of initial.nodes.filter(n=>n.data.pendingTask)){
+      try{let r=await requestGeneration('status',{requestId:n.data.pendingTask},controller.signal);
+       if(r.state==='processing')r=await waitGeneration(n.data.pendingTask!,controller.signal,()=>update(n.id,{status:'Aguardando Runware…'}));
+       if(r.state==='success')update(n.id,{pendingTask:undefined,result:r.url,mediaType:r.mediaType,cost:r.cost!=null?String(r.cost):undefined,generatedModel:n.data.model,generatedResolution:n.data.resolution,status:'Concluído'});
+       else if(r.state==='error')update(n.id,{pendingTask:undefined,status:r.error});
+      }catch(e){if(!controller.signal.aborted)message((e as Error).message);}
+    }})();return()=>controller.abort();
+  },[signedIn]);
+
   const update=useCallback((id:string,patch:Partial<NodeData>)=>setNodes(ns=>ns.map(n=>n.id===id?{...n,data:{...n.data,...patch}}:n)),[setNodes]);
   useEffect(()=>{setSaved(false);const timer=setTimeout(()=>setSaved(onSave(snapshot)),500);return()=>clearTimeout(timer);},[snapshot,onSave]);
   useEffect(()=>{
@@ -112,13 +160,13 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
     let currentId='';
     try{
       let ordered=orderGraph(nodes,edges) as FlowNode[];
-      if(targetId){const needed=new Set([targetId]);let changed=true;while(changed){changed=false;for(const e of edges)if(needed.has(e.target)&&!needed.has(e.source)){needed.add(e.source);changed=true;}}ordered=ordered.filter(n=>needed.has(n.id));}
+      if(targetId){const needed=new Set<string>();const visit=(id:string)=>{if(needed.has(id))return;needed.add(id);const n=nodes.find(n=>n.id===id);if(id!==targetId&&n?.data.result&&!n.data.pendingTask&&hasQuote(n.data.kind))return;for(const e of edges.filter(e=>e.target===id))visit(e.source);};visit(targetId);ordered=ordered.filter(n=>needed.has(n.id));}
       if(!ordered.length)throw new Error('Adicione nodes ao workflow.');
       const paid=ordered.some(n=>['generate','video'].includes(n.data.kind));
       const resuming=ordered.some(n=>n.data.pendingTask);
       if(paid&&(!runwareConfigured||!signedIn))throw new Error(!runwareConfigured?'Runware: aguardando ativação do backend.':'Entre na sua conta para usar os modelos Runware.');
       for(const n of ordered){
-        if(n.data.pendingTask||(resuming&&n.data.result&&['generate','video'].includes(n.data.kind)))continue;
+        if(n.data.pendingTask||((resuming||(!!targetId&&n.id!==targetId))&&n.data.result&&hasQuote(n.data.kind)))continue;
         if(n.data.kind==='compare'){if(!['a','b'].every(port=>edges.some(e=>e.target===n.id&&e.targetHandle===port)))throw new Error('Conecte as imagens A e B ao Comparar.');continue;}
         if(catalog[n.data.kind].input&&!edges.some(e=>e.target===n.id&&!e.targetHandle))throw new Error('Conecte a entrada principal de '+(n.data.model||catalog[n.data.kind].label)+'.');
         if(n.data.kind==='prompt'&&!n.data.prompt?.trim())throw new Error('Escreva um prompt antes de gerar.');
@@ -139,7 +187,7 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
         if(n.data.kind==='prompt')output={url:n.data.prompt!,mediaType:'text'};
         else if(n.data.kind==='image')output={url:n.data.image!,mediaType:'image'};
         else if(['generate','video'].includes(n.data.kind)){
-          if(resuming&&!n.data.pendingTask&&n.data.result){output={url:n.data.result,mediaType:n.data.mediaType||'image'};values.set(n.id,output);update(n.id,{status:'Concluído'});continue;}
+          if((resuming||(!!targetId&&n.id!==targetId))&&!n.data.pendingTask&&n.data.result){output={url:n.data.result,mediaType:n.data.mediaType||'image'};values.set(n.id,output);update(n.id,{status:'Concluído'});continue;}
           const requestId=n.data.pendingTask||crypto.randomUUID();
           update(n.id,{pendingTask:requestId});
           // Persist before submission so reloads can recover the same paid task.
@@ -147,11 +195,11 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
           if(!onSave(pendingProject)){update(n.id,{pendingTask:n.data.pendingTask});throw new Error('Não foi possível salvar a tarefa. Geração não enviada.');}
           const referenceId=edges.find(e=>e.target===n.id&&e.targetHandle==='reference')?.source;
           const reference=referenceId?values.get(referenceId)?.url:undefined;
-          let result= n.data.pendingTask? await requestGeneration('status',{requestId},controller.signal):await requestGeneration('generate',{requestId,model:n.data.model||(n.data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'),prompt:input?.url,ratio:n.data.ratio||(n.data.kind==='video'?'16:9':'1:1'),duration:n.data.duration,resolution:n.data.resolution,quality:n.data.quality,reference},controller.signal);
+          let result= n.data.pendingTask? await requestGeneration('status',{requestId},controller.signal):await requestGeneration('generate',{requestId,model:n.data.model||(n.data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'),prompt:input?.url,ratio:n.data.ratio||(n.data.kind==='video'?'16:9':'1:1'),duration:n.data.duration,resolution:n.data.resolution,quality:n.data.quality,reference,projectId:initial.id,nodeId:n.id},controller.signal);
           if(result.state==='processing')result=await waitGeneration(requestId,controller.signal,()=>update(n.id,{status:'Aguardando Runware…'}));
           if(result.state==='error'){update(n.id,{pendingTask:undefined});throw new Error(result.error||'Falha na geração.');}
           if(!result.url)throw new Error('Resultado ainda indisponível. Consulte a pendência.');
-          output={url:result.url,mediaType:result.mediaType||'image'};update(n.id,{pendingTask:undefined});
+          output={url:result.url,mediaType:result.mediaType||'image'};update(n.id,{pendingTask:undefined,cost:result.cost!=null?String(result.cost):undefined,generatedModel:n.data.model||'Nano Banana Pro',generatedResolution:n.data.resolution||(n.data.kind==='video'?'720p':'1K')});
         }else if(n.data.kind==='compare'){const selected=edges.find(e=>e.target===n.id&&e.targetHandle===(n.data.compareOutput||'a'))?.source;output=selected?values.get(selected)!:undefined!;}else output=input!;
         if(!output?.url)throw new Error('A entrada não retornou mídia.');
         values.set(n.id,output);update(n.id,{status:'Concluído',...(n.data.kind!=='prompt'?{result:output.url,mediaType:output.mediaType}:{})});
@@ -159,9 +207,10 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
       message(paid?'Geração concluída pela Runware.':'Workflow concluído.');
     }catch(e){if(currentId)update(currentId,{status:'Verifique a geração',...((e as {notSubmitted?:boolean}).notSubmitted?{pendingTask:undefined}:{})});message((e as Error).message);}finally{runLock.current=false;setRunning(false);}
   }
-  function back(){if(onSave(latest.current))onBack();}
+  function back(){if(onSave(latest.current)){if(signedIn)void onCloudSave(latest.current).catch(e=>message(e.message));onBack();}}
   return <NodeActions.Provider value={{update,run:(id)=>void run(id),message,running}}><main className="editor">
-    <header className="editor-header"><div className="editor-heading"><button className="icon-button" aria-label="Voltar aos workflows" title="Voltar aos workflows" disabled={running} onClick={back}><ArrowLeft size={19}/></button><Wordmark/><span className="header-divider"/><input aria-label="Nome do workflow" value={name} maxLength={120} onChange={e=>setName(e.target.value)} placeholder="Untitled"/><select aria-label="Pasta do workflow" value={folder} onChange={e=>setFolder(e.target.value)}><option value="">Sem pasta</option>{folders.map(f=><option key={f}>{f}</option>)}</select></div><div className="editor-actions"><span className="save-status">{saved?<Check size={13}/>:<LoaderCircle size={13}/>}<span>{saved?'Salvo localmente':'Salvando…'}</span></span><button className="icon-button" aria-label="Exportar workflow" title="Exportar workflow" onClick={()=>exportProject(snapshot)}><Download size={17}/></button><button className="outline-button cloud-save" disabled={saving||running} onClick={async()=>{setSaving(true);try{await onCloudSave(snapshot);}catch(e){message((e as Error).message);}finally{setSaving(false);}}}>{saving?<LoaderCircle className="spin" size={15}/>:<Cloud size={15}/>}<span>Salvar na nuvem</span></button><button className="primary run-button" disabled={running} onClick={()=>void run()}>{running?<LoaderCircle className="spin" size={15}/>:<Play size={14} fill="currentColor"/>}<span>{running?'Executando':nodes.some(n=>n.data.pendingTask)?'Consultar pendência':'Gerar fluxo'}</span><small>RUNWARE</small></button></div></header>
+    <header className="editor-header"><div className="editor-heading"><button className="icon-button" aria-label="Voltar aos workflows" title="Voltar aos workflows" disabled={running} onClick={back}><ArrowLeft size={19}/></button><Wordmark/><span className="header-divider"/><input aria-label="Nome do workflow" value={name} maxLength={120} onChange={e=>setName(e.target.value)} placeholder="Untitled"/><select aria-label="Pasta do workflow" value={folder} onChange={e=>setFolder(e.target.value)}><option value="">Sem pasta</option>{folders.map(f=><option key={f}>{f}</option>)}</select></div><div className="editor-actions"><button className="icon-button" aria-label="Desfazer" title="Desfazer (Ctrl+Z)" disabled={running||!undoStack.current.length} onClick={()=>historyMove()}>↶</button><button className="icon-button" aria-label="Refazer" title="Refazer (Ctrl+Shift+Z)" disabled={running||!redoStack.current.length} onClick={()=>historyMove(true)}>↷</button><span className="save-status" title={cloudStatus}>{saved?<Check size={13}/>:<LoaderCircle size={13}/>}<span>{saved?cloudStatus:'Salvando localmente…'}</span></span><button className="outline-button" disabled={!signedIn||running} onClick={()=>void listCloudVersions(initial.id).then(setVersions).catch(e=>message(e.message))}>Versões</button><button className="icon-button" aria-label="Exportar workflow"  title="Exportar workflow" onClick={()=>exportProject(snapshot)}><Download size={17}/></button><button className="outline-button cloud-save" disabled={saving||running} onClick={async()=>{setSaving(true);try{await onCloudSave(snapshot);setCloudStatus('Salvo na nuvem');}catch(e){message((e as Error).message);}finally{setSaving(false);}}}>{saving?<LoaderCircle className="spin" size={15}/>:<Cloud size={15}/>}<span>Salvar na nuvem</span></button><button className="primary run-button" disabled={running} onClick={()=>void run()}>{running?<LoaderCircle className="spin" size={15}/>:<Play size={14} fill="currentColor"/>}<span>{running?'Executando':nodes.some(n=>n.data.pendingTask)?'Consultar pendência':'Gerar fluxo'}</span><small>RUNWARE</small></button></div></header>
+    {!['Local','Aguardando sincronização','Alterações locais','Salvando na nuvem…','Salvo na nuvem'].includes(cloudStatus)&&<div className="cloud-warning" role="alert">{cloudStatus} <button onClick={()=>exportProject(latest.current)}>Exportar backup</button></div>}
     <div className="flow-canvas"><ReactFlow nodes={nodes} edges={displayEdges} nodeTypes={nodeTypes} onNodesChange={running?undefined:onNodesChange} onEdgesChange={running?undefined:onEdgesChange} onConnect={(c:Connection)=>setEdges(es=>addEdge(c,es))} isValidConnection={c=>validConnection(c,nodes,edges)} onPaneContextMenu={e=>{e.preventDefault();if(!running)setMenu({x:e.clientX,y:e.clientY});}} onPaneClick={()=>setMenu(null)} defaultViewport={savedViewport} onMoveEnd={(_,viewport)=>{try{localStorage.setItem(viewportKey,JSON.stringify(viewport));}catch{/* Keep the canvas usable if storage is unavailable. */}}} fitView={!savedViewport} fitViewOptions={{padding:.18,maxZoom:.85}} minZoom={.15} maxZoom={1.75} nodesDraggable={!running} nodesConnectable={!running} elementsSelectable={!running} deleteKeyCode={running||menu?null:['Delete','Backspace']} defaultEdgeOptions={{type:'default',style:{stroke:'#ed3b9c',strokeWidth:2,strokeDasharray:'5 8'}}} proOptions={{hideAttribution:true}}><Background gap={20} size={1} color="#262629"/><Controls showInteractive={false}/></ReactFlow>
       {!nodes.length&&<div className="empty-canvas"><Workflow size={32}/><h1>O que vamos criar?</h1><p>Todo universo começa com uma ideia.</p><button className="outline-button" onClick={()=>setMenu({x:window.innerWidth/2-140,y:window.innerHeight/2-100})}><Plus size={16}/>Adicionar primeiro node</button></div>}
       <div className="canvas-toolbar"><button className={menu?'active':''} aria-label="Adicionar node" title="Adicionar node (Ctrl+K)" disabled={running} onClick={()=>setMenu(menu?null:{x:80,y:140})}><Plus size={20}/></button><span/><button aria-label="Enquadrar canvas" title="Enquadrar canvas" onClick={()=>void fitView({padding:.2,duration:300,maxZoom:1})}><Maximize2 size={17}/></button><button aria-label="Ajuda do editor" title="Ajuda do editor" onClick={()=>setHelp(!help)}><HelpCircle size={18}/></button></div>
@@ -170,6 +219,7 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
       {active&&!running&&<div className="selection-toolbar"><span>{active.data.model||catalog[active.data.kind].label}</span><button aria-label="Duplicar node" title="Duplicar node" onClick={()=>{if(nodes.length>=100)return message('Limite de 100 nodes por workflow.');setNodes(ns=>[...ns.map(n=>({...n,selected:false})),{...active,id:crypto.randomUUID(),position:{x:active.position.x+50,y:active.position.y+70},data:{...active.data,status:undefined,pendingTask:undefined},selected:true}]);}}><Copy size={15}/></button><button aria-label="Excluir node" title="Excluir node" onClick={()=>{setNodes(ns=>ns.filter(n=>n.id!==active.id));setEdges(es=>es.filter(e=>e.source!==active.id&&e.target!==active.id));}}><Trash2 size={15}/></button></div>}
       {help&&<div className="editor-help"><button className="icon-button" aria-label="Fechar ajuda" onClick={()=>setHelp(false)}><X size={15}/></button><h2>Ideias que se conectam.</h2><p><b>Adicionar:</b> botão +, clique direito ou Ctrl+K.</p><p><b>Conectar:</b> arraste da saída de um node até a entrada de outro. Texto (rosa) conecta ao Prompt; imagem (azul) conecta à Imagem de referência ou ao Resultado; vídeo (violeta) conecta ao Resultado.</p><p><b>Navegar:</b> arraste o fundo e use a roda para zoom.</p><p><b>Excluir:</b> selecione um node ou conexão e pressione Delete.</p><small>Gerar consome créditos Runware. A entrada rosa recebe o prompt e a azul recebe uma imagem de referência opcional. Vídeos aceitam 4, 6 ou 8 segundos. Upscale continua demonstrativo.</small></div>}
     </div>
+    {versions&&<div className="modal-backdrop"><section className="modal" role="dialog" aria-label="Versões do workflow"><button className="icon-button" onClick={()=>setVersions(null)}>Fechar</button><h2>Versões na nuvem</h2><p>Até 10 pontos de recuperação, agrupados em intervalos de 5 minutos. Exporte a versão atual antes de restaurar.</p>{versions.length?versions.map(v=><button key={v.id} className="outline-button full-width" onClick={()=>{try{const p=cleanProject(JSON.parse(v.graph));exportProject(latest.current);setNodes(p.nodes);setEdges(p.edges);setName(p.name);setFolder(p.folder||'');setVersions(null);message('Versão restaurada. Backup anterior exportado.');}catch(e){message((e as Error).message);}}}>{new Date(JSON.parse(v.graph).updatedAt).toLocaleString('pt-BR')} · {v.name}</button>):<p>Nenhuma versão anterior salva.</p>}</section></div>}
     {menu&&<NodeMenu {...menu} onAdd={addNode} onClose={()=>setMenu(null)}/>}
   </main></NodeActions.Provider>;
 }

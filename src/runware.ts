@@ -1,7 +1,7 @@
 import {auth} from './firebase';
 export const runwareConfigured=Boolean(import.meta.env.VITE_RUNWARE_API_URL);
-type Generation={state:string;url?:string;mediaType?:string;cost?:number;error?:string;requestId?:string};
-export async function requestGeneration(path:'generate'|'status',payload:Record<string,unknown>,signal?:AbortSignal):Promise<Generation>{
+export type Generation={state:string;url?:string;mediaType?:string;cost?:number;error?:string;requestId?:string};
+export async function requestGeneration(path:string,payload:Record<string,unknown>,signal?:AbortSignal):Promise<any>{
   if(!runwareConfigured)throw new Error('O backend Runware ainda não foi ativado.');
   if(!auth?.currentUser)throw new Error('Entre na sua conta para gerar com Runware.');
   const token=await auth.currentUser.getIdToken();
@@ -18,3 +18,5 @@ export async function waitGeneration(requestId:string,signal:AbortSignal,onProgr
   }
   throw new Error('A geração ainda está em processamento. Use “Consultar pendência” para recuperar sem gerar novamente.');
 }
+
+export const accountRequest=(path:string,payload:Record<string,unknown>={})=>requestGeneration(path,payload);

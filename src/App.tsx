@@ -6,9 +6,12 @@ import AuthScreen, { Wordmark } from './AuthScreen';
 import Editor from './Editor';
 import {runwareConfigured} from './runware';
 import { cleanProject, exportProject, newProject, readProjects, relativeDate, storageKey } from './projects';
+import AdminPanel from './AdminPanel';
+import GenerationHistory from './GenerationHistory';
+import {accountRequest} from './runware';
 import type { Project } from './types';
 
-type Page = 'workflows'|'gallery'|'albums';
+type Page = 'workflows'|'gallery'|'albums'|'admin'|'history';
 export default function App() {
   const [user,setUser] = useState<User|null>(null);
   const [ready,setReady] = useState(!auth);
@@ -21,11 +24,13 @@ export default function App() {
 
 function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
   const scope = user?.uid || 'guest';
+  const [account,setAccount]=useState<any>(null);
+  useEffect(()=>{if(!user||!runwareConfigured)return;accountRequest('me').then(setAccount).catch(()=>{});},[user]);
   const [initial] = useState(()=>{try{return {projects:readProjects(scope),error:''};}catch(e){return {projects:[] as Project[],error:(e as Error).message};}});
   const [projects,setProjects] = useState(initial.projects);
   const projectsRef = useRef(projects);
   const [navigation] = useState(()=>{try{const value=JSON.parse(localStorage.getItem(`cosmos:navigation:${scope}`)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}});
-  const [page,setPage] = useState<Page>(['workflows','gallery','albums'].includes(navigation.page)?navigation.page:'workflows');
+  const [page,setPage] = useState<Page>(['workflows','gallery','albums','admin','history'].includes(navigation.page)?navigation.page:'workflows');
   const [active,setActive] = useState<string|null>(typeof navigation.active==='string'?navigation.active:null);
   const [filter,setFilter] = useState(typeof navigation.filter==='string'?navigation.filter:'Todos');
   const [search,setSearch] = useState(typeof navigation.search==='string'?navigation.search:'');
@@ -34,6 +39,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
   const [folderName,setFolderName] = useState('');
   const [toast,setToast] = useState(initial.error);
   const [busy,setBusy] = useState(false);
+  const [cloudReady,setCloudReady]=useState(!user);
   const [folders,setFolders] = useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem(`cosmos:folders:${scope}`)||'[]').filter((s:unknown)=>typeof s==='string');}catch{return [];}});
   const [feedback,setFeedback] = useState(()=>localStorage.getItem(`cosmos:feedback:${scope}`)||'');
   const importRef = useRef<HTMLInputElement>(null);
@@ -55,7 +61,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
       const merged=new Map(projectsRef.current.map(p=>[p.id,p]));
       for(const row of rows){const p=cleanProject(JSON.parse((row as {graph:string}).graph));p.id=row.id;const previous=merged.get(p.id);if(!previous || p.updatedAt>previous.updatedAt)merged.set(p.id,p);}
       persist([...merged.values()]);
-    }).catch(()=>{if(!cancelled)message('Não foi possível sincronizar a nuvem. Seus workflows locais continuam disponíveis.');}).finally(()=>{if(!cancelled)setBusy(false);});
+    }).catch(()=>{if(!cancelled)message('Não foi possível sincronizar a nuvem. Seus workflows locais continuam disponíveis.');}).finally(()=>{if(!cancelled){setBusy(false);setCloudReady(true);}});
     return()=>{cancelled=true;};
   },[user,persist,message]);
   async function sync(){if(!user){setModal('settings');return;}setBusy(true);try{
@@ -63,7 +69,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
     for(const row of rows){const p=cleanProject(JSON.parse((row as {graph:string}).graph));p.id=row.id;const old=merged.get(p.id);if(!old || p.updatedAt>old.updatedAt)merged.set(p.id,p);}
     persist([...merged.values()]);message('Workflows da nuvem atualizados.');
   }catch{message('Não foi possível sincronizar. Tente novamente.');}finally{setBusy(false);}}
-  async function cloudSave(p:Project){if(!user){message('Entre na sua conta para salvar na nuvem. A demo salva neste dispositivo.');return;}await saveCloud(p.id,p.name,JSON.stringify(cleanProject(p)));message('Workflow salvo no Firebase.');}
+  const cloudSave=useCallback(async(p:Project)=>{if(!user){message('Entre na sua conta para salvar na nuvem. A demo salva neste dispositivo.');return;}await saveCloud(p.id,p.name,JSON.stringify(cleanProject(p)));},[user,message]);
   function create(example=false){const p=newProject(example);p.folder=filter==='Todos'?'':filter;if(upsert(p))setActive(p.id);}
   function addFolder(){const name=folderName.trim();if(!name)return;if(name==='Todos'||allFolders.includes(name)){message('Já existe uma pasta com esse nome.');return;}const next=[...folders,name];try{localStorage.setItem(`cosmos:folders:${scope}`,JSON.stringify(next));setFolders(next);setFilter(name);setPage('workflows');setModal(null);setFolderName('');}catch{message('Não foi possível salvar a pasta neste dispositivo.');}}
   const allFolders=[...new Set([...folders,...projects.map(p=>p.folder||'').filter(Boolean)])];
@@ -72,20 +78,25 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
   const media=projects.flatMap(p=>p.nodes.filter(n=>n.data.result||n.data.image).map(n=>({id:`${p.id}-${n.id}`,src:n.data.result||n.data.image!,project:p,mediaType:n.data.mediaType||'image'})));
 
   return <div className="app-shell">
-    {current ? <Editor key={current.id} storageScope={scope} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
+    {current&&!cloudReady?<div className="app-loading"><Wordmark/><span>Sincronizando seu workflow…</span></div>:current ? <Editor key={current.id} storageScope={scope} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
       <aside className="sidebar">
         <button className="sidebar-brand" onClick={()=>{setPage('workflows');setFilter('Todos');}} aria-label="Cosmos — início"><Wordmark/></button>
         <nav aria-label="Navegação principal">
           <button className={page==='workflows'?'active':''} onClick={()=>setPage('workflows')}><Workflow size={20}/>Workflows</button>
           <button className={page==='gallery'?'active':''} onClick={()=>setPage('gallery')}><Images size={20}/>Galeria</button>
           <button className={page==='albums'?'active':''} onClick={()=>setPage('albums')}><FolderOpen size={20}/>Álbuns</button>
+          {user&&<button className={page==='history'?'active':''} onClick={()=>setPage('history')}><Clock3 size={20}/>Histórico</button>}
+          {account?.isAdmin&&<button className={page==='admin'?'active':''} onClick={()=>setPage('admin')}><Settings2 size={20}/>Administração</button>}
           <button onClick={()=>setModal('feedback')}><MessageSquare size={20}/>Feedback</button>
           <button onClick={()=>setModal('settings')}><Settings2 size={20}/>Configurações</button>
         </nav>
-        <div className="sidebar-bottom"><div className="sidebar-tip"><span className="tiny-dot"/> {user?'Workspace pessoal':'Modo demonstração'}<small>{user?'Seu universo criativo.':'Explore sem consumir APIs.'}</small></div><div className="profile"><span className="planet-avatar" aria-hidden="true"/><div><strong>{user?.displayName || user?.email?.split('@')[0] || 'Explorador'}</strong><small>{user?'Conta pessoal':'Visitante'}</small></div><button aria-label={user?'Sair da conta':'Voltar ao login'} title={user?'Sair da conta':'Voltar ao login'} onClick={()=>void onExit().catch(()=>message('Não foi possível sair. Tente novamente.'))}><LogOut size={16}/></button></div></div>
+        <div className="sidebar-bottom"><div className="sidebar-tip"><span className="tiny-dot"/> {user?'Workspace pessoal':'Modo demonstração'}<small>{user?'Seu universo criativo.':'Explore sem consumir APIs.'}</small></div><div className="profile"><span className="planet-avatar" aria-hidden="true"/><div><strong>{user?.displayName || user?.email?.split('@')[0] || 'Explorador'}</strong><small>{account?.isAdmin?'Administrador':user?'Conta pessoal':'Visitante'}</small></div><button aria-label={user?'Sair da conta':'Voltar ao login'} title={user?'Sair da conta':'Voltar ao login'} onClick={()=>void onExit().catch(()=>message('Não foi possível sair. Tente novamente.'))}><LogOut size={16}/></button></div></div>
       </aside>
       <main className="dashboard">
-        <header className="dashboard-header"><div><h1>{page==='workflows'?'Workflows':page==='gallery'?'Galeria':'Álbuns'}</h1><p>{page==='workflows'?'Crie e organize seus fluxos de geração de imagens.':page==='gallery'?'Suas referências e resultados, em um só lugar.':'Organize seus universos criativos por projeto.'}</p></div><button className="primary" onClick={()=>page==='albums'?setModal('folder'):create()}><Plus size={18}/>{page==='albums'?'Novo álbum':'Novo Workflow'}</button></header>
+        {account&&!account.isAdmin&&account.account.status!=='active'&&<p className="notice" role="status">{account.account.status==='blocked'?'Suas gerações estão bloqueadas.':'Sua conta aguarda aprovação para gerar.'} Você pode organizar seus workflows.</p>}
+        {page==='admin'&&(account?.isAdmin?<AdminPanel/>:<p>Acesso exclusivo do administrador.</p>)}
+        {page==='history'&&user&&<GenerationHistory/>}
+        {['workflows','gallery','albums'].includes(page)&&<header className="dashboard-header"><div><h1>{page==='workflows'?'Workflows':page==='gallery'?'Galeria':'Álbuns'}</h1><p>{page==='workflows'?'Crie e organize seus fluxos de geração de imagens.':page==='gallery'?'Suas referências e resultados, em um só lugar.':'Organize seus universos criativos por projeto.'}</p></div><button className="primary" onClick={()=>page==='albums'?setModal('folder'):create()}><Plus size={18}/>{page==='albums'?'Novo álbum':'Novo Workflow'}</button></header>}
         {page==='workflows' && <>
           <div className="workflows-toolbar"><div className="folder-tabs"><button className={filter==='Todos'?'active':''} onClick={()=>setFilter('Todos')}>Todos</button>{allFolders.map(folder=><button key={folder} className={filter===folder?'active':''} onClick={()=>setFilter(folder)}>{folder}</button>)}<button onClick={()=>setModal('folder')}><Plus size={12}/> Pasta</button></div><div className="workflow-actions"><div className="search-compact"><Search size={15}/><input aria-label="Buscar workflows" placeholder="Buscar" value={search} onChange={e=>setSearch(e.target.value)}/></div><button className="icon-button" aria-label="Importar workflow" title="Importar workflow" onClick={()=>importRef.current?.click()}><Upload size={17}/></button><button className="icon-button" aria-label="Atualizar nuvem" title="Atualizar nuvem" disabled={busy} onClick={()=>void sync()}><RefreshCw className={busy?'spin':''} size={17}/></button></div></div>
           <div className="workflow-grid">{filtered.map(p=>{
