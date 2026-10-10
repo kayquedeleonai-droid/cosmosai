@@ -37,3 +37,10 @@
 .model-inputs+.react-flow__handle+.node-preview{border-radius:0}
 .studio-node .react-flow__handle{width:13px!important;height:13px!important;cursor:crosshair}
 .studio-node .react-flow__handle:hover{box-shadow:0 0 0 5px #ffffff20}
+
+.model-output-row{justify-content:flex-end;border-top:1px solid #303036;color:#06bdd5}
+.model-output-row>small{margin-left:0;margin-right:auto;color:#a2a2ae}.video-output{color:#ac8bfa}
+.studio-node .react-flow__handle.video-port{background:#ac8bfa!important;border-color:#ac8bfa!important}
+.generation-status{display:flex;align-items:center;gap:7px;padding:9px 13px;font-size:11px;color:#b7c6d0;border-top:1px solid #303036}
+.node-controls .node-play{width:32px;height:32px}.node-controls select{min-height:30px}
+.model-input-row>small{color:#a2a2ae}.node-preview>span:not(.preview-label){color:#a2a2ae;font-size:12px}
