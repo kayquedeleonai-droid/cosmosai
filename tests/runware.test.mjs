@@ -4,7 +4,7 @@ import {models,buildTask,readResult,safeMedia,availableResolutions,findModel} fr
 import {validConnection,validateProject} from '../src/graph.mjs';
 import worker from '../worker/index.mjs';
 import {verifyUser} from '../worker/auth.mjs';
-test('all six models build real async tasks with a single result',()=>{
+test('all supported models build real async tasks with a single result',()=>{
  for(const model of models){const t=buildTask({model:model.label,prompt:'Uma paisagem cinematográfica',ratio:'16:9',duration:'4'},crypto.randomUUID());assert.equal(t.model,model.id);assert.equal(t.numberResults,1);assert.equal(t.deliveryMethod,'async');assert.ok(t.width>0);}
 });
 test('reference frames use resolution instead of conflicting dimensions',()=>{const t=buildTask({model:'VEO',prompt:'Uma câmera avança',ratio:'16:9',reference:'https://im.runware.ai/test.png'},crypto.randomUUID());assert.equal(t.width,undefined);assert.equal(t.resolution,'720p');assert.equal(t.inputs.frameImages.length,1);});
@@ -26,4 +26,14 @@ test('unsupported resolution combinations are rejected and excluded from UI choi
  assert.deepEqual(availableResolutions(findModel('GPT Image 2.5 Sunburst'),'1:1'),['1K','2K']);
  assert.deepEqual(availableResolutions(findModel('VEO'),'16:9'),['720p','1080p','4K']);
  for(const [model,resolution,ratio] of [['Seedream 5.0 Pro','4K','16:9'],['VEO','480p','16:9'],['GPT Image 2.5 Sunburst','4K','1:1'],['Nano Banana Pro','__proto__','1:1']])assert.throws(()=>buildTask({model,resolution,ratio,prompt:'A mountain'},crypto.randomUUID()),/Resolução/);
+});
+
+test('new models enforce their resolutions, durations and reference constraints',()=>{
+ const base={prompt:'A cinematic sunset',ratio:'16:9'};
+ assert.equal(buildTask({...base,model:'Nano Banana 2',resolution:'4K'},crypto.randomUUID()).width,5504);
+ assert.equal(buildTask({...base,model:'Seedance 2.0',resolution:'480p',duration:'15'},crypto.randomUUID()).width,864);
+ const ref={...base,reference:'https://im.runware.ai/test.png'};
+ assert.equal(buildTask({...ref,model:'Seedance 2.0',resolution:'4K'},crypto.randomUUID()).resolution,'4k');
+ assert.equal(buildTask({...ref,model:'Kling 3.0 Turbo',duration:'3'},crypto.randomUUID()).inputs.frameImages[0],ref.reference);
+ for(const patch of [{resolution:'4K'},{duration:'16'},{prompt:'x'.repeat(2501)}])assert.throws(()=>buildTask({...ref,model:'Kling 3.0 Turbo',...patch},crypto.randomUUID()));
 });

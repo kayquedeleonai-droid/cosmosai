@@ -6,6 +6,9 @@ export const models = [
   {label:'Seedream 5.0 Pro',id:'bytedance:seedream@5.0-pro',kind:'generate',sizes:{'1:1':[1024,1024],'16:9':[1424,800],'9:16':[800,1424]}},
   {label:'Seedance 2.5',id:'bytedance:seedance@2.5',kind:'video',sizes:{'1:1':[960,960],'16:9':[1280,720],'9:16':[720,1280]}},
   {label:'VEO 3.1',id:'google:3@2',kind:'video',sizes:{'16:9':[1280,720],'9:16':[720,1280]}},
+  {label:'Nano Banana 2',id:'google:4@3',kind:'generate',sizes:{'1:1':[1024,1024],'16:9':[1376,768],'9:16':[768,1376]}},
+  {label:'Seedance 2.0',id:'bytedance:seedance@2.0',kind:'video',sizes:{'1:1':[960,960],'16:9':[1280,720],'9:16':[720,1280]}},
+  {label:'Kling 3.0 Turbo',id:'klingai:kling-video@3.0-turbo',kind:'video',sizes:{'1:1':[960,960],'16:9':[1280,720],'9:16':[720,1280]}},
 ];
 // Resolution pairs from each model's Runware reference, checked 2026-10-10.
 // GPT 4K is UHD landscape/portrait only: 4096-square exceeds its pixel budget.
@@ -16,6 +19,13 @@ const presets={
   'bytedance:seedance@2.5':{'480p':{'1:1':[640,640],'16:9':[854,480],'9:16':[480,854]},'720p':models[4].sizes,'1080p':{'1:1':[1440,1440],'16:9':[1920,1080],'9:16':[1080,1920]}},
   'google:3@2':{'720p':models[5].sizes,'1080p':{'16:9':[1920,1080],'9:16':[1080,1920]},'4K':{'16:9':[3840,2160],'9:16':[2160,3840]}},
 };
+presets['google:4@3']=presets['google:4@2'];
+presets['bytedance:seedance@2.0']={'480p':{'1:1':[640,640],'16:9':[864,496],'9:16':[496,864]},'720p':models[7].sizes,'1080p':presets['bytedance:seedance@2.5']['1080p'],'4K':{'1:1':[2880,2880],'16:9':[3840,2160],'9:16':[2160,3840]}};
+presets['klingai:kling-video@3.0-turbo']={'720p':models[8].sizes,'1080p':presets['bytedance:seedance@2.5']['1080p']};
+export function durationOptions(model){
+  const min=model?.id==='klingai:kling-video@3.0-turbo'?3:model?.id==='bytedance:seedance@2.0'?4:0;
+  return min?Array.from({length:16-min},(_,i)=>String(i+min)):['4','6','8'];
+}
 export function resolutionPresets(model){return model?presets[model.id.startsWith('openai:')?'gpt':model.id]:undefined;}
 export function availableResolutions(model,ratio){return Object.entries(resolutionPresets(model)||{}).filter(([,sizes])=>Object.hasOwn(sizes,ratio)).map(([key])=>key);}
 export function outputSize(model,ratio,resolution){
@@ -35,7 +45,7 @@ export function switchModel(data,label){
   const ratio=Object.hasOwn(model.sizes,data.ratio)?data.ratio:(model.kind==='video'?'16:9':'1:1');
   const resolutions=availableResolutions(model,ratio);
   const fallback=model.kind==='video'?'720p':'1K';
-  return {model:model.label,ratio,resolution:resolutions.includes(data.resolution)?data.resolution:fallback,quality:qualityOptions(model).includes(data.quality)?data.quality:undefined,status:undefined};
+  return {...(model.kind==='video'?{duration:durationOptions(model).includes(data.duration)?data.duration:'4'}:{}),model:model.label,ratio,resolution:resolutions.includes(data.resolution)?data.resolution:fallback,quality:qualityOptions(model).includes(data.quality)?data.quality:undefined,status:undefined};
 }
 export function safeMedia(value) {
   if(typeof value!=='string')return false;
@@ -56,9 +66,10 @@ export function buildTask(input,taskUUID) {
   if(input.quality!=null){if(!qualityOptions(model).includes(input.quality))throw new Error('Qualidade não suportada por este modelo.');task.settings={quality:input.quality};}
   if(video){
     const duration=Number(input.duration||4);
-    if(![4,6,8].includes(duration))throw new Error('Duração inválida. Use 4, 6 ou 8 segundos.');
+    if(!durationOptions(model).includes(String(duration)))throw new Error('Duração não suportada por este modelo.');
+    if(model.id==='klingai:kling-video@3.0-turbo'&&input.reference&&input.prompt.length>2500)throw new Error('Kling com imagem aceita prompts de até 2500 caracteres.');
     task.duration=duration;
-    if(input.reference){task.inputs={frameImages:[input.reference]};task.resolution=resolution;}
+    if(input.reference){task.inputs={frameImages:[input.reference]};task.resolution=model.id==='bytedance:seedance@2.0'&&resolution==='4K'?'4k':resolution;}
     else {task.width=size[0];task.height=size[1];}
   }else {task.width=size[0];task.height=size[1];if(input.reference)task.inputs={referenceImages:[input.reference]};}
   return task;

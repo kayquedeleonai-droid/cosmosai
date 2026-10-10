@@ -50,7 +50,7 @@ export function validateProject(value) {
     if(n.data.pendingTask!=null&&!/^[0-9a-f-]{36}$/i.test(n.data.pendingTask))throw new Error('Geração pendente inválida.');
     if(n.data.quality!=null&&!['auto','low','medium','high','xhigh','max'].includes(n.data.quality))throw new Error('Qualidade inválida.');
     if(n.data.resolution!=null&&!['480p','720p','1080p','1K','2K','4K'].includes(n.data.resolution))throw new Error('Resolução inválida.');
-    if(n.data.duration!=null&&!['4','6','8'].includes(n.data.duration))throw new Error('Duração inválida.');
+    if(n.data.duration!=null&&!Array.from({length:13},(_,i)=>String(i+3)).includes(n.data.duration))throw new Error('Duração inválida.');
     if(n.data.mediaType!=null&&!['image','video'].includes(n.data.mediaType))throw new Error('Tipo de mídia inválido.');
     if (n.data.image != null && (typeof n.data.image !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(n.data.image))) throw new Error('Imagem inválida.');
   }
