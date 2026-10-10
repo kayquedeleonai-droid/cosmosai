@@ -26,3 +26,5 @@
 .sidebar-brand .wordmark{transform:scaleX(1.4)}
 .react-flow__controls{flex-direction:row!important}
 @media(max-height:800px) and (min-width:561px){.auth-screen{padding:30px 20px 38px}.auth-logo{font-size:39px;margin-bottom:14px}.studio-credit{margin-bottom:23px}.auth-card{padding:25px 32px}.auth-divider{height:21px;margin:10px 0 16px}.social-button{height:44px;margin-bottom:10px}.auth-input{height:44px}.auth-submit{height:44px;margin-top:15px}.auth-switch{margin-top:18px}.demo-link{margin-top:13px}.auth-bottom{bottom:10px}}
+
+.auth-logo{margin-bottom:40px}.node-preview video{width:100%;height:100%;object-fit:contain;border-radius:12px}.gallery-grid video{width:100%;height:100%;object-fit:cover}.node-state{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

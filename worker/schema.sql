@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS jobs (
+ id TEXT PRIMARY KEY, uid TEXT NOT NULL, day TEXT NOT NULL,
+ units INTEGER NOT NULL, signature TEXT NOT NULL,
+ state TEXT NOT NULL DEFAULT 'processing', result TEXT,
+ created INTEGER NOT NULL, polled INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS jobs_day ON jobs(day,uid);

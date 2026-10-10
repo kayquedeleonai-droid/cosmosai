@@ -10,3 +10,5 @@ dist/
 .firebase-auth.local.json
 artifacts/
 cosmos-preview.png
+.wrangler/
+.dev.vars

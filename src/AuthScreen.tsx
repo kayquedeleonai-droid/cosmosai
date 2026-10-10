@@ -24,7 +24,6 @@ export default function AuthScreen({onDemo}: {onDemo:()=>void}) {
     <div className="universe" aria-hidden="true"/>
     <section className="auth-content">
       <Wordmark className="auth-logo"/>
-      <div className="studio-credit"><span>BY</span><div>THE --<br/><b>Future</b><small>/ Studios</small></div></div>
       <form className="auth-card" onSubmit={submit}>
         {mode!=='login' && <h1>{mode==='create'?'Crie sua conta':'Recupere sua senha'}</h1>}
         {mode!=='reset' && <><button className="social-button" type="button" disabled={busy || !configured} onClick={async()=>{setBusy(true);setMessage('');try{await login();}catch(e){setMessage(authMessage(e));}finally{setBusy(false);}}}><GoogleIcon/>Continuar com Google</button>

@@ -10,6 +10,9 @@ export type NodeData = {
   status?: string;
   model?: string;
   ratio?: string;
+  duration?: string;
+  mediaType?: string;
+  pendingTask?: string;
   [key: string]: unknown;
 };
 export type FlowNode = Node<NodeData>;

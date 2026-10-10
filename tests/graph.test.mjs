@@ -14,10 +14,11 @@ test('keeps legacy projects valid while validating persisted preview fields',()=
   assert.throws(()=>validateProject({...p,nodes:[{...node('a','generate'),data:{kind:'generate',result:'https://external.example/track.png'}}]}));
   assert.throws(()=>validateProject({...p,nodes:[{...node('a','generate'),data:{kind:'generate',ratio:'999:0'}}]}));
 });
-test('video consumes text and cannot feed an image input',()=>{
+test('video consumes text and feeds a media output but not upscale',()=>{
   const nodes=[node('p','prompt'),node('v','video'),node('o','output')];
   assert.equal(validConnection({source:'p',target:'v'},nodes,[]),true);
-  assert.equal(validConnection({source:'v',target:'o'},nodes,[]),false);
+  assert.equal(validConnection({source:'v',target:'o'},nodes,[]),true);
+  assert.equal(validConnection({source:'v',target:'u'},[...nodes,node('u','upscale')],[]),false);
 });
 test('rejects repeated edge identifiers even with different targets',()=>{
   assert.throws(()=>validateProject({version:1,name:'Duplicate',nodes:[node('p','prompt'),node('a','generate'),node('b','generate')],edges:[{id:'same',source:'p',target:'a'},{id:'same',source:'p',target:'b'}]}));

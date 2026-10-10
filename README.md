@@ -12,16 +12,16 @@ Para comandos Firebase, use `npx -y firebase-tools@latest` (não é necessário 
 
 - Login com visual espacial, painel de workflows, pastas/álbuns e galeria.
 - Canvas com zoom, pan, nodes arrastáveis, duplicação, exclusão e menu pesquisável via botão +, clique direito ou Ctrl+K.
-- Nodes de prompt, upload de imagem, geração demonstrativa, upscale demonstrativo e resultado para download.
-- Conexões tipadas, uma entrada por node e bloqueio de ciclos.
+- Nodes de prompt, upload de imagem, geração Runware, upscale demonstrativo e resultado para download.
+- Conexões tipadas, entradas separadas para prompt e referência e bloqueio de ciclos.
 - Execução em ordem de dependência, com validação das entradas.
 - Vários workflows salvos no navegador por conta; exportação/importação JSON e migração do projeto local da versão anterior.
-- Resultados de demonstração persistidos no workflow e exibidos na galeria.
+- Resultados de geração persistidos no workflow e exibidos na galeria.
 - Login Google, cadastro/entrada por e-mail e recuperação de senha via Firebase Authentication.
 - Gravação e listagem de projetos no Firestore; sincronização da nuvem ao entrar na conta.
 - CI no GitHub e workflow manual de publicação no Firebase Hosting.
 
-**Geração e upscale são demonstrações.** A geração retorna uma ilustração SVG fixa; upscale repassa a imagem sem ampliá-la. Nano Banana Pro é uma identificação visual de integração futura, não uma chamada real. Os nodes Seedance/VEO armazenam a etapa de vídeo, mas bloqueiam a execução enquanto não houver API. Login Apple está desabilitado e identificado como indisponível. Nenhuma API de IA está conectada. Uploads ficam no JSON e no armazenamento local (até 1,5 MB por imagem); projetos na nuvem têm limite conservador de 650 KB. Para produção, mover mídias para armazenamento de objetos e persistir referências.
+Geração real de imagens e vídeos via Runware, com chave exclusiva guardada como segredo no Cloudflare Worker. Modelos: Nano Banana Pro, GPT Image 2.5 Sunburst/Flare, Seedream 5.0 Pro, Seedance 2.5 e VEO 3.1. Upscale permanece demonstrativo e não pode integrar um fluxo pago; Apple está indisponível. Uploads ficam no JSON local (até 1,5 MB); projetos na nuvem têm limite de 650 KB. URLs de resultados dependem da retenção do provedor: baixe os arquivos importantes.
 
 ## Desenvolvimento
 
@@ -59,24 +59,33 @@ Repositório pretendido: https://github.com/kayquedeleonai-droid/cosmosai
 O workflow `Validate app` testa e compila cada push/PR. O workflow `Publish to Firebase Hosting` é acionado manualmente em Actions depois de configurar:
 
 - Environment `production` e suas proteções.
-- Repository variables: os quatro campos `VITE_FIREBASE_*` do `.env.example`.
+- Repository variables: os quatro campos `VITE_FIREBASE_*` e `VITE_RUNWARE_API_URL` do `.env.example`.
 - Environment secret `FIREBASE_SERVICE_ACCOUNT`: credencial JSON de uma conta de serviço autorizada a publicar Hosting no projeto. Cadastre diretamente nos Secrets do GitHub, nunca em arquivos versionados ou no chat.
 
 O workflow publica somente Hosting. Regras do Firestore são publicadas separadamente conforme acima. GitHub Actions não foi executado até haver push e configuração da conta.
 
-## Próxima etapa: APIs reais
+## Backend Runware
 
-Adicionar um executor no servidor (por exemplo Firebase Cloud Functions) com verificação de Firebase ID token, App Check, lista permitida de modelos, validação de inputs, quotas por usuário, limite de concorrência e idempotência por execução. As chaves privadas dos provedores ficam em Secret Manager. O frontend envia o grafo e acompanha a execução, sem conter chaves de IA em `VITE_*` ou localStorage. Este backend **ainda não foi implementado**.
+Worker: https://cosmos-runware.kayquedeleonai.workers.dev. Firebase continua responsável por login, projetos e Hosting; não é necessário ativar Blaze para este executor.
 
-## Custos
+O Worker valida o ID token Firebase (conta com e-mail verificado), origem, modelo, prompt e referências. D1 reserva a cota atomicamente e registra cada taskUUID, evitando reenviar uma criação em caso de resposta perdida. O cliente salva a tarefa antes de enviá-la e permite consultar pendências após recarregar. Segredos nunca usam prefixo VITE_ nem entram no Git.
 
-Firebase Hosting e Firestore oferecem cotas gratuitas. O subdomínio do Firebase permite começar sem domínio próprio. Cloud Functions exige plano Blaze; armazenamento, tráfego, banco e processamento podem gerar custos conforme o uso. Não é possível garantir que domínio e APIs serão os únicos custos em produção. Configure alertas de orçamento e limites no executor; alertas não são bloqueio de gastos.
+Limites iniciais por dia UTC: 10 unidades por usuário, 20 no total. Imagem custa 1 unidade; vídeo, 10. Esses limites controlam quantidade, não dólares; Runware cobra seus créditos conforme o modelo. Erros também reservam a cota para evitar novas cobranças em situações ambíguas.
 
-Fontes oficiais: https://firebase.google.com/pricing e https://firebase.google.com/docs/projects/billing/firebase-pricing-plans
+```sh
+pnpm dlx wrangler login
+pnpm dlx wrangler d1 execute cosmos-runware --remote --file worker/schema.sql --config worker/wrangler.jsonc
+pnpm dlx wrangler secret put RUNWARE_API_KEY --config worker/wrangler.jsonc
+pnpm dlx wrangler deploy --config worker/wrangler.jsonc
+```
 
-## Limitações desta base
+Na reprodução em outra conta, crie seu D1 e substitua database_id em worker/wrangler.jsonc. Cadastre a chave diretamente no prompt seguro do Wrangler ou no painel Cloudflare como Secret. Configure VITE_RUNWARE_API_URL antes de compilar o frontend. Os testes usam um banco SQLite e provedor simulado, sem créditos reais.
 
-O salvamento automático é local; o botão Salvar na nuvem envia o workflow ao Firestore. Pastas vazias e notas de feedback ficam apenas neste navegador; a pasta atribuída a um workflow acompanha seu JSON na nuvem. Sem colaboração simultânea, fila de geração, cobrança, histórico de versões, armazenamento de mídia externo ou provedores de IA reais. Administração de usuários não foi implementada; não há privilégio de administrador concedido apenas pela interface. Resultados grandes podem exceder a cota de armazenamento local; exporte um backup quando o aplicativo avisar.
+## Custos e limitações
+
+Cloudflare Workers/D1 estão no plano gratuito e sujeitos às respectivas cotas. Runware continua pago por uso. Não ativamos plano pago de infraestrutura. Documentação: https://developers.cloudflare.com/workers/platform/limits/ e https://developers.cloudflare.com/d1/platform/pricing/.
+
+O salvamento automático é local; Salvar na nuvem envia o workflow ao Firestore. Pastas vazias e feedback ficam no navegador. Sem colaboração simultânea, cobrança de usuários, histórico de versões ou armazenamento próprio de mídia. Limites globais evitam consumo ilimitado, mas qualquer conta verificada pode consumir a cota disponível. Administração de usuários não está implementada.
 
 ## Identidade visual
 

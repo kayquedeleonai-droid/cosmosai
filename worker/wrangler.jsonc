@@ -1,0 +1,13 @@
+{
+  "name": "cosmos-runware",
+  "main": "index.mjs",
+  "compatibility_date": "2026-10-10",
+  "workers_dev": true,
+  "d1_databases": [{"binding":"DB","database_name":"cosmos-runware","database_id":"431d83cb-60ef-47e2-a1ea-5a9a90bc6820"}],
+  "vars": {
+    "FIREBASE_PROJECT_ID": "cosmosai-1e2d6",
+    "ALLOWED_ORIGINS": "https://aicosmos.app,https://www.aicosmos.app,https://cosmosai-1e2d6.web.app,http://127.0.0.1:5173",
+    "USER_DAILY_UNITS": "10",
+    "GLOBAL_DAILY_UNITS": "20"
+  }
+}
