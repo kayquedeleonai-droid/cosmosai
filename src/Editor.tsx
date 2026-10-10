@@ -6,6 +6,7 @@ import { cleanProject, exportProject } from './projects';
 import { DEMO_IMAGE, type FlowNode, type Kind, type NodeData, type Project } from './types';
 import { Wordmark } from './AuthScreen';
 import { models, findModel, buildTask } from './runware-models.mjs';
+import CompareNode from './CompareNode';
 import {runwareConfigured, requestGeneration, waitGeneration} from './runware';
 
 type Actions = {update:(id:string,patch:Partial<NodeData>)=>void; run:(id?:string)=>void; message:(text:string)=>void; running:boolean};
@@ -26,6 +27,7 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
   const model=findModel(data.model||(data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'));
   const isVideo=data.mediaType==='video'||data.kind==='video';
   const hasModelInputs=['generate','video'].includes(data.kind);
+  if(data.kind==='compare')return <CompareNode id={id} data={data} selected={selected} update={update} running={running}/>;
   return <article className={`studio-node node-${data.kind} ${selected?'selected':''} ${busy?'executing':''}`} style={{'--node-accent':meta.color} as React.CSSProperties}>
     <div className="node-title"><span/>{label}{['generate','video'].includes(data.kind)?<small>RUNWARE</small>:data.kind==='upscale'?<small>DEMO</small>:null}</div>
     {hasModelInputs?<div className="model-inputs">
@@ -52,7 +54,7 @@ const groups=[
   {label:'Gerar Vídeo',icon:Video,items:models.filter(m=>m.kind==='video').map(m=>({label:m.label,kind:'video',model:m.label})) as MenuChoice[]},
   {label:'Gerar 3D',icon:Box,items:[] as MenuChoice[]},
   {label:'Upscale de Imagem',icon:ScanLine,items:[{label:'Upscale',kind:'upscale'}] as MenuChoice[]},
-  {label:'Utilitários',icon:Wrench,items:[{label:'Resultado',kind:'output'}] as MenuChoice[]},
+  {label:'Utilitários',icon:Wrench,items:[{label:'Comparar imagens',kind:'compare'},{label:'Resultado',kind:'output'}] as MenuChoice[]},
   {label:'Entrada / Saída',icon:LogIn,items:[{label:'Carregar imagem',kind:'image'},{label:'Resultado',kind:'output'}] as MenuChoice[]},
   {label:'Texto / IA',icon:MessageSquare,items:[{label:'Prompt',kind:'prompt'}] as MenuChoice[]},
 ];
@@ -115,6 +117,7 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
       if(paid&&(!runwareConfigured||!signedIn))throw new Error(!runwareConfigured?'Runware: aguardando ativação do backend.':'Entre na sua conta para usar os modelos Runware.');
       for(const n of ordered){
         if(n.data.pendingTask||(resuming&&n.data.result&&['generate','video'].includes(n.data.kind)))continue;
+        if(n.data.kind==='compare'){if(!['a','b'].every(port=>edges.some(e=>e.target===n.id&&e.targetHandle===port)))throw new Error('Conecte as imagens A e B ao Comparar.');continue;}
         if(catalog[n.data.kind].input&&!edges.some(e=>e.target===n.id&&!e.targetHandle))throw new Error('Conecte a entrada principal de '+(n.data.model||catalog[n.data.kind].label)+'.');
         if(n.data.kind==='prompt'&&!n.data.prompt?.trim())throw new Error('Escreva um prompt antes de gerar.');
         if(n.data.kind==='image'&&!n.data.image)throw new Error('Carregue uma imagem antes de gerar.');
@@ -147,7 +150,7 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
           if(result.state==='error'){update(n.id,{pendingTask:undefined});throw new Error(result.error||'Falha na geração.');}
           if(!result.url)throw new Error('Resultado ainda indisponível. Consulte a pendência.');
           output={url:result.url,mediaType:result.mediaType||'image'};update(n.id,{pendingTask:undefined});
-        }else output=input!;
+        }else if(n.data.kind==='compare'){const selected=edges.find(e=>e.target===n.id&&e.targetHandle===(n.data.compareOutput||'a'))?.source;output=selected?values.get(selected)!:undefined!;}else output=input!;
         if(!output?.url)throw new Error('A entrada não retornou mídia.');
         values.set(n.id,output);update(n.id,{status:'Concluído',...(n.data.kind!=='prompt'?{result:output.url,mediaType:output.mediaType}:{})});
       }

@@ -13,6 +13,9 @@ export type NodeData = {
   duration?: string;
   mediaType?: string;
   pendingTask?: string;
+  compareMode?: string;
+  compareSplit?: string;
+  compareOutput?: string;
   [key: string]: unknown;
 };
 export type FlowNode = Node<NodeData>;

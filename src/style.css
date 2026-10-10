@@ -44,3 +44,13 @@
 .generation-status{display:flex;align-items:center;gap:7px;padding:9px 13px;font-size:11px;color:#b7c6d0;border-top:1px solid #303036}
 .node-controls .node-play{width:32px;height:32px}.node-controls select{min-height:30px}
 .model-input-row>small{color:#a2a2ae}.node-preview>span:not(.preview-label){color:#a2a2ae;font-size:12px}
+
+.node-compare{width:510px}.node-compare select{background:#24242b;color:#06bdd5;border:1px solid #444451;border-radius:5px;padding:3px 8px}
+.compare-modes{display:flex;gap:5px;padding:10px;background:#18181c}.compare-modes button{flex:1;border:1px solid #34343e;border-radius:6px;padding:7px;color:#b8b8c5;font-size:11px}.compare-modes button[aria-pressed=true]{background:#0b3840;color:#4ed8eb;border-color:#096c7b}
+.compare-stage{height:310px;position:relative;overflow:hidden;background:repeating-conic-gradient(#19191d 0% 25%,#222228 0% 50%) 50%/20px 20px}
+.compare-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}.compare-stage p{height:100%;margin:0;padding:35px;display:flex;align-items:center;justify-content:center;text-align:center;color:#a2a2b0;font-size:13px;line-height:1.7}
+.compare-stage b{position:absolute;top:10px;background:#101016d9;border:1px solid #777783;color:#fff;padding:4px 8px;border-radius:5px;font-size:11px;z-index:2}.compare-label-a{left:10px}.compare-label-b{right:10px}
+.compare-side{display:flex}.compare-side>div{width:50%;height:100%;position:relative}.compare-side>div+div{border-left:1px solid #74747f}.compare-side b{left:10px}
+.compare-divider{position:absolute;top:0;bottom:0;width:2px;background:#fff;pointer-events:none;z-index:3}.compare-divider span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#16272c;border-radius:20px;padding:5px;box-shadow:0 1px 8px #0008}
+.compare-drag{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;z-index:4}.compare-stage:focus-within{outline:2px solid #06bdd5;outline-offset:-2px}
+.compare-footer{padding:12px 14px;color:#b9b9c4;font-size:11px}.compare-footer label{display:flex;gap:10px;align-items:center}.compare-footer input{flex:1;accent-color:#06bdd5;min-width:0}.compare-footer output{width:34px;text-align:right}.compare-footer small{display:block;margin-top:8px;color:#9696a4;font-size:10px}

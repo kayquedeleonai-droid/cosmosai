@@ -1,5 +1,6 @@
 import {safeMedia} from './runware-models.mjs';
 export const catalog = {
+  compare: { label: 'Comparar', category: 'UTILITÁRIO', color: '#06bdd5', input: 'image', output: 'image', description: 'Compare duas imagens sem consumir créditos.' },
   prompt: { label: 'Prompt', category: 'ENTRADA', color: '#c0a1ff', input: null, output: 'text', description: 'Transforme uma ideia em direção criativa.' },
   image: { label: 'Imagem', category: 'ENTRADA', color: '#80c5a8', input: null, output: 'image', description: 'Traga uma referência do seu computador.' },
   generate: { label: 'Gerar imagem', category: 'MODELO', color: '#ffb627', input: 'text', output: 'image', description: 'Explore imagens a partir de um prompt.' },
@@ -25,10 +26,12 @@ export function orderGraph(nodes, edges) {
 export function validConnection(connection, nodes, edges) {
   const a = nodes.find(n => n.id === connection.source), b = nodes.find(n => n.id === connection.target);
   if (!a || !b || a.id === b.id) return false;
+  if(b.data.kind==='compare'&&!['a','b'].includes(connection.targetHandle))return false;
+  if(['a','b'].includes(connection.targetHandle)&&b.data.kind!=='compare')return false;
   if(connection.targetHandle==='reference'&&!['generate','video'].includes(b.data.kind))return false;
   const output=catalog[a.data.kind]?.output;
   const input=connection.targetHandle==='reference'&&['generate','video'].includes(b.data.kind)?'image':catalog[b.data.kind]?.input;
-  if(connection.sourceHandle!=null||![null,undefined,'reference'].includes(connection.targetHandle))return false;
+  if(connection.sourceHandle!=null||![null,undefined,'reference','a','b'].includes(connection.targetHandle))return false;
   if(!output||!(output===input||(b.data.kind==='output'&&output==='video')))return false;
   if (edges.some(e => e.target === b.id && (e.targetHandle||null)===(connection.targetHandle||null))) return false;
   try { orderGraph(nodes, [...edges, connection]); return true; } catch { return false; }
@@ -40,6 +43,9 @@ export function validateProject(value) {
     if (n.data.prompt != null && typeof n.data.prompt !== 'string') throw new Error('Prompt inválido.');
     if (n.data.model != null && (typeof n.data.model !== 'string' || n.data.model.length > 80)) throw new Error('Modelo inválido.');
     if (n.data.ratio != null && !['1:1','16:9','9:16'].includes(n.data.ratio)) throw new Error('Proporção inválida.');
+    if(n.data.compareMode!=null&&!['wipe','side','overlay'].includes(n.data.compareMode))throw new Error('Modo de comparação inválido.');
+    if(n.data.compareOutput!=null&&!['a','b'].includes(n.data.compareOutput))throw new Error('Saída de comparação inválida.');
+    if(n.data.compareSplit!=null&&(typeof n.data.compareSplit!=='string'||!/^\d{1,3}$/.test(n.data.compareSplit)||Number(n.data.compareSplit)>100))throw new Error('Divisória inválida.');
     if (n.data.result != null && (typeof n.data.result !== 'string' || (n.data.result !== '/demo-landscape.svg' && !safeMedia(n.data.result) && !/^data:image\/(png|jpeg|webp);base64,/.test(n.data.result)))) throw new Error('Resultado inválido.');
     if(n.data.pendingTask!=null&&!/^[0-9a-f-]{36}$/i.test(n.data.pendingTask))throw new Error('Geração pendente inválida.');
     if(n.data.duration!=null&&!['4','6','8'].includes(n.data.duration))throw new Error('Duração inválida.');
