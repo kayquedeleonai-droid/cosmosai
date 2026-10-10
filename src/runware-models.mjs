@@ -27,6 +27,16 @@ export function findModel(label) {
   const aliases={'Seedance':'Seedance 2.5','VEO':'VEO 3.1','Gerador de imagem':'Nano Banana Pro'};
   return models.find(m=>m.label===(aliases[label]||label)||m.id===label);
 }
+export function qualityOptions(model){return model?.id.startsWith('openai:')?['auto','low','medium','high','xhigh','max']:[];}
+export function switchModel(data,label){
+  const model=findModel(label);
+  if(!model||model.kind!==data.kind)throw new Error('Modelo incompatível com este node.');
+  if(data.pendingTask)throw new Error('Consulte a geração pendente antes de trocar o modelo.');
+  const ratio=Object.hasOwn(model.sizes,data.ratio)?data.ratio:(model.kind==='video'?'16:9':'1:1');
+  const resolutions=availableResolutions(model,ratio);
+  const fallback=model.kind==='video'?'720p':'1K';
+  return {model:model.label,ratio,resolution:resolutions.includes(data.resolution)?data.resolution:fallback,quality:qualityOptions(model).includes(data.quality)?data.quality:undefined,status:undefined};
+}
 export function safeMedia(value) {
   if(typeof value!=='string')return false;
   try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(u.hostname==='im.runware.ai'||u.hostname==='vm.runware.ai'||u.hostname==='assets.runware.ai');}catch{return false;}
@@ -43,6 +53,7 @@ export function buildTask(input,taskUUID) {
   if(input.reference!=null&&!validReference(input.reference))throw new Error('Imagem de referência inválida.');
   const video=model.kind==='video';
   const task={taskType:video?'videoInference':'imageInference',taskUUID,model:model.id,positivePrompt:input.prompt.trim(),numberResults:1,outputType:'URL',outputFormat:video?'MP4':'PNG',deliveryMethod:'async',includeCost:true};
+  if(input.quality!=null){if(!qualityOptions(model).includes(input.quality))throw new Error('Qualidade não suportada por este modelo.');task.settings={quality:input.quality};}
   if(video){
     const duration=Number(input.duration||4);
     if(![4,6,8].includes(duration))throw new Error('Duração inválida. Use 4, 6 ou 8 segundos.');

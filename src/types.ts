@@ -11,6 +11,7 @@ export type NodeData = {
   model?: string;
   ratio?: string;
   resolution?: string;
+  quality?: string;
   duration?: string;
   mediaType?: string;
   pendingTask?: string;
