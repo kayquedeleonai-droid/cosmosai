@@ -20,11 +20,14 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
   const src=data.result||data.image;
   const model=findModel(data.model||(data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'));
   const isVideo=data.mediaType==='video'||data.kind==='video';
+  const hasModelInputs=['generate','video'].includes(data.kind);
   return <article className={`studio-node node-${data.kind} ${selected?'selected':''} ${data.status==='Executando…'?'executing':''}`} style={{'--node-accent':meta.color} as React.CSSProperties}>
     <div className="node-title"><span/>{label}{['generate','video'].includes(data.kind)?<small>RUNWARE</small>:data.kind==='upscale'?<small>DEMO</small>:null}</div>
-    {meta.input&&<Handle type="target" position={Position.Left} title={`Entrada: ${meta.input}`} className={meta.input==='text'?'text-port':'image-port'}/>}
-    {['generate','video'].includes(data.kind)&&<Handle id="reference" type="target" position={Position.Left} title="Referência de imagem (opcional)" className="image-port" style={{top:58}}/>}
-    {meta.output&&<Handle type="source" position={Position.Right} title={`Saída: ${meta.output}`} className={meta.output==='text'?'text-port':'image-port'}/>}
+    {hasModelInputs?<div className="model-inputs">
+      <div className="model-input-row prompt-input"><Handle type="target" position={Position.Left} title="Entrada de prompt" aria-label="Entrada de prompt" className="text-port" style={{top:22}}/><Type size={13}/><span>Prompt</span><small>Texto</small></div>
+      <div className="model-input-row reference-input"><Handle id="reference" type="target" position={Position.Left} title="Entrada de imagem de referência" aria-label="Entrada de imagem de referência" className="image-port" style={{top:56}}/><ImageIcon size={13}/><span>Imagem</span><small>{data.kind==='video'?'Frame inicial · opcional':'Referência · opcional'}</small></div>
+    </div>:meta.input&&<Handle type="target" position={Position.Left} title={`Entrada: ${meta.input}`} className={meta.input==='text'?'text-port':'image-port'}/>}
+    {meta.output&&<Handle type="source" position={Position.Right} title={`Saída: ${meta.output}`} className={meta.output==='text'?'text-port':'image-port'} style={hasModelInputs?{top:22}:undefined}/>}
     {data.kind==='prompt'?<><textarea aria-label="Prompt" disabled={running} className="nodrag nowheel prompt-text" value={data.prompt||''} placeholder="Descreva sua ideia para gerar imagens…" maxLength={8000} onChange={e=>update(id,{prompt:e.target.value})}/><div className="prompt-footer"><Type size={13}/><span>{data.prompt?.length||0} / 8000</span></div></>:
       data.kind==='image'?<label className="node-upload nodrag">{src?<img src={src} alt="Imagem de referência"/>:<><Upload size={25}/><strong>Adicionar imagem</strong><span>PNG, JPG ou WebP · até 1,5 MB</span></>}<input type="file" aria-label="Carregar imagem" accept="image/png,image/jpeg,image/webp" disabled={running} onChange={e=>{upload(e.target.files?.[0]);e.target.value='';}}/></label>:
       <div className={`node-preview ratio-${(data.ratio||'1:1').replace(':','-')}`}>{src?<>{isVideo?<video className="nodrag nowheel" src={src} controls preload="metadata"/>:<img src={src} alt="Resultado do workflow"/>}{src===DEMO_IMAGE&&<span className="preview-label">ILUSTRAÇÃO DEMONSTRATIVA</span>}</>:<span>{data.kind==='video'?'Conecte um prompt para gerar vídeo':data.kind==='output'?'Conecte uma imagem para visualizar':data.kind==='upscale'?'Conecte uma imagem para ampliar':'Conecte um prompt para gerar'}</span>}</div>}
