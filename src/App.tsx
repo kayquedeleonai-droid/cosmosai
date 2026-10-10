@@ -24,11 +24,13 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
   const [initial] = useState(()=>{try{return {projects:readProjects(scope),error:''};}catch(e){return {projects:[] as Project[],error:(e as Error).message};}});
   const [projects,setProjects] = useState(initial.projects);
   const projectsRef = useRef(projects);
-  const [page,setPage] = useState<Page>('workflows');
-  const [active,setActive] = useState<string|null>(null);
-  const [filter,setFilter] = useState('Todos');
-  const [search,setSearch] = useState('');
-  const [modal,setModal] = useState<'settings'|'folder'|'feedback'|null>(null);
+  const [navigation] = useState(()=>{try{const value=JSON.parse(localStorage.getItem(`cosmos:navigation:${scope}`)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}});
+  const [page,setPage] = useState<Page>(['workflows','gallery','albums'].includes(navigation.page)?navigation.page:'workflows');
+  const [active,setActive] = useState<string|null>(typeof navigation.active==='string'?navigation.active:null);
+  const [filter,setFilter] = useState(typeof navigation.filter==='string'?navigation.filter:'Todos');
+  const [search,setSearch] = useState(typeof navigation.search==='string'?navigation.search:'');
+  const [modal,setModal] = useState<'settings'|'folder'|'feedback'|null>(['settings','feedback'].includes(navigation.modal)?navigation.modal:null);
+  useEffect(()=>{try{localStorage.setItem(`cosmos:navigation:${scope}`,JSON.stringify({page,active,filter,search,modal:modal==='folder'?null:modal}));}catch{/* Navigation persistence must not block editing. */}},[scope,page,active,filter,search,modal]);
   const [folderName,setFolderName] = useState('');
   const [toast,setToast] = useState(initial.error);
   const [busy,setBusy] = useState(false);
@@ -70,7 +72,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
   const media=projects.flatMap(p=>p.nodes.filter(n=>n.data.result||n.data.image).map(n=>({id:`${p.id}-${n.id}`,src:n.data.result||n.data.image!,project:p,mediaType:n.data.mediaType||'image'})));
 
   return <div className="app-shell">
-    {current ? <Editor key={current.id} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
+    {current ? <Editor key={current.id} storageScope={scope} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
       <aside className="sidebar">
         <button className="sidebar-brand" onClick={()=>{setPage('workflows');setFilter('Todos');}} aria-label="Cosmos — início"><Wordmark/></button>
         <nav aria-label="Navegação principal">
