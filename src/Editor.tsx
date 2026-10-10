@@ -5,7 +5,7 @@ import { catalog, orderGraph, validConnection } from './graph.mjs';
 import { cleanProject, exportProject } from './projects';
 import { DEMO_IMAGE, type FlowNode, type Kind, type NodeData, type Project } from './types';
 import { Wordmark } from './AuthScreen';
-import { models, findModel, buildTask } from './runware-models.mjs';
+import { models, findModel, buildTask, availableResolutions, outputSize } from './runware-models.mjs';
 import CompareNode from './CompareNode';
 import {runwareConfigured, requestGeneration, waitGeneration} from './runware';
 
@@ -25,6 +25,8 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
   function upload(file?:File){if(!file)return;if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>1500000){message('Use PNG, JPG ou WebP de até 1,5 MB.');return;}const reader=new FileReader();reader.onerror=()=>message('Não foi possível ler a imagem.');reader.onload=()=>update(id,{image:String(reader.result),result:undefined});reader.readAsDataURL(file);}
   const src=data.result||data.image;
   const model=findModel(data.model||(data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'));
+  const resolution=data.resolution||(data.kind==='video'?'720p':'1K');
+  const size=outputSize(model,data.ratio||(data.kind==='video'?'16:9':'1:1'),resolution);
   const isVideo=data.mediaType==='video'||data.kind==='video';
   const hasModelInputs=['generate','video'].includes(data.kind);
   if(data.kind==='compare')return <CompareNode id={id} data={data} selected={selected} update={update} running={running}/>;
@@ -39,9 +41,10 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
     {data.kind==='prompt'?<><textarea aria-label="Prompt" disabled={running} className="nodrag nowheel prompt-text" value={data.prompt||''} placeholder="Descreva sua ideia para gerar imagens…" maxLength={3000} onChange={e=>update(id,{prompt:e.target.value})}/><div className="prompt-footer"><Type size={13}/><span>{data.prompt?.length||0} / 3000</span></div></>:
       data.kind==='image'?<label className="node-upload nodrag">{src?<img src={src} alt="Imagem de referência"/>:<><Upload size={25}/><strong>Adicionar imagem</strong><span>PNG, JPG ou WebP · até 1,5 MB</span></>}<input type="file" aria-label="Carregar imagem" accept="image/png,image/jpeg,image/webp" disabled={running} onChange={e=>{upload(e.target.files?.[0]);e.target.value='';}}/></label>:
       <div className={`node-preview ratio-${(data.ratio||'1:1').replace(':','-')}`}>{src?<>{isVideo?<video className="nodrag nowheel" src={src} controls preload="metadata"/>:<img src={src} alt="Resultado do workflow"/>}{src===DEMO_IMAGE&&<span className="preview-label">ILUSTRAÇÃO DEMONSTRATIVA</span>}</>:<span>{hasModelInputs?(promptConnected?'Pronto para gerar'+(imageConnected?' com imagem de referência':''):'Conecte um node Prompt à entrada rosa'):data.kind==='output'?'Conecte uma imagem para visualizar':data.kind==='upscale'?'Conecte uma imagem para ampliar':'Conecte um prompt para gerar'}</span>}</div>}
+    {hasModelInputs&&<div className="generation-format">{resolution} · {data.kind==='video'&&imageConnected?'Proporção do frame inicial':size?.join(' × ')+' px'}</div>}
     {hasModelInputs&&(data.status||data.pendingTask)&&<div className="generation-status" role="status">{busy&&<LoaderCircle className="spin" size={13}/>}<span>{data.status||(data.pendingTask?'Geração pendente · clique para consultar':'')}</span></div>}
     {data.kind!=='prompt'&&data.kind!=='image'&&<div className="node-controls nodrag">
-      {data.kind==='generate'||data.kind==='video'?<><span className="node-chip">× 1</span><select aria-label="Proporção da geração" value={data.ratio||(data.kind==='video'?'16:9':'1:1')} disabled={running} onChange={e=>update(id,{ratio:e.target.value})}>{Object.keys(model?.sizes||{'1:1':[],'16:9':[],'9:16':[]}).map(r=><option key={r}>{r}</option>)}</select>{data.kind==='video'&&<select aria-label="Duração do vídeo" value={data.duration||'4'} disabled={running} onChange={e=>update(id,{duration:e.target.value})}><option value="4">4 s</option><option value="6">6 s</option><option value="8">8 s</option></select>}<details className="node-settings"><summary aria-label="Configurações do modelo"><Settings2 size={14}/></summary><div><strong>{label}</strong><p>Geração pela Runware. Consome créditos da conta conectada.</p><span>Proporção: {data.ratio||'1:1'}</span></div></details></>:<span className="node-state">{data.status|| (data.kind==='upscale'?'Demonstração · sem ampliação real':'Saída de mídia')}</span>}
+      {data.kind==='generate'||data.kind==='video'?<><span className="node-chip">× 1</span><select aria-label="Proporção da geração" value={data.ratio||(data.kind==='video'?'16:9':'1:1')} disabled={running||(data.kind==='video'&&imageConnected)} title={data.kind==='video'&&imageConnected?'A proporção segue o frame inicial':'Proporção da geração'} onChange={e=>{const ratio=e.target.value;const options=availableResolutions(model,ratio);update(id,{ratio,resolution:options.includes(resolution)?resolution:options[0]});}}>{Object.keys(model?.sizes||{'1:1':[],'16:9':[],'9:16':[]}).map(r=><option key={r}>{r}</option>)}</select><select className="resolution-select" aria-label="Resolução da geração" title="Resolução da geração" disabled={running} value={resolution} onChange={e=>update(id,{resolution:e.target.value})}>{availableResolutions(model,data.ratio||(data.kind==='video'?'16:9':'1:1')).map(r=><option key={r} value={r}>{r}</option>)}</select>{data.kind==='video'&&<select aria-label="Duração do vídeo" value={data.duration||'4'} disabled={running} onChange={e=>update(id,{duration:e.target.value})}><option value="4">4 s</option><option value="6">6 s</option><option value="8">8 s</option></select>}<details className="node-settings"><summary aria-label="Configurações do modelo"><Settings2 size={14}/></summary><div><strong>{label}</strong><p>Geração pela Runware. Consome créditos da conta conectada.</p><span>{resolution} · {data.kind==='video'&&imageConnected?'proporção do frame inicial':size?.join(' × ')+' px'}</span><p>Resoluções maiores podem consumir mais créditos.</p></div></details></>:<span className="node-state">{data.status|| (data.kind==='upscale'?'Demonstração · sem ampliação real':'Saída de mídia')}</span>}
       {src&&<a className="node-download" title={isVideo?'Abrir vídeo':'Abrir imagem'} aria-label={isVideo?'Abrir vídeo':'Abrir imagem'} href={src} target="_blank" rel="noreferrer" download={src===DEMO_IMAGE?'cosmos-demo.svg':isVideo?'cosmos-video.mp4':'cosmos-imagem.png'}><Download size={14}/></a>}
       {data.kind!=='output'&&<button className="node-play" title="Gerar este node e suas entradas" aria-label={data.pendingTask?'Consultar geração pendente':'Gerar '+label} disabled={running} onClick={()=>run(id)}>{busy?<LoaderCircle className="spin" size={14}/>:<Play size={14} fill="currentColor"/>}</button>}
     </div>}
@@ -124,7 +127,7 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
         if(n.data.kind==='upscale'&&paid)throw new Error('Upscale real ainda não está integrado. Remova esse node antes de gerar.');
         if(['generate','video'].includes(n.data.kind)){
           const source=nodes.find(source=>source.id===edges.find(e=>e.target===n.id&&!e.targetHandle)?.source);
-          buildTask({model:n.data.model||(n.data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'),prompt:source?.data.prompt||'',ratio:n.data.ratio||(n.data.kind==='video'?'16:9':'1:1'),duration:n.data.duration},crypto.randomUUID());
+          buildTask({model:n.data.model||(n.data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'),prompt:source?.data.prompt||'',ratio:n.data.ratio||(n.data.kind==='video'?'16:9':'1:1'),duration:n.data.duration,resolution:n.data.resolution},crypto.randomUUID());
         }
       }
       runLock.current=true;setRunning(true);setMenu(null);const controller=new AbortController();abortRun.current=controller;
@@ -145,7 +148,7 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
           if(!onSave(pendingProject)){update(n.id,{pendingTask:n.data.pendingTask});throw new Error('Não foi possível salvar a tarefa. Geração não enviada.');}
           const referenceId=edges.find(e=>e.target===n.id&&e.targetHandle==='reference')?.source;
           const reference=referenceId?values.get(referenceId)?.url:undefined;
-          let result= n.data.pendingTask? await requestGeneration('status',{requestId},controller.signal):await requestGeneration('generate',{requestId,model:n.data.model||(n.data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'),prompt:input?.url,ratio:n.data.ratio||(n.data.kind==='video'?'16:9':'1:1'),duration:n.data.duration,reference},controller.signal);
+          let result= n.data.pendingTask? await requestGeneration('status',{requestId},controller.signal):await requestGeneration('generate',{requestId,model:n.data.model||(n.data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'),prompt:input?.url,ratio:n.data.ratio||(n.data.kind==='video'?'16:9':'1:1'),duration:n.data.duration,resolution:n.data.resolution,reference},controller.signal);
           if(result.state==='processing')result=await waitGeneration(requestId,controller.signal,()=>update(n.id,{status:'Aguardando Runware…'}));
           if(result.state==='error'){update(n.id,{pendingTask:undefined});throw new Error(result.error||'Falha na geração.');}
           if(!result.url)throw new Error('Resultado ainda indisponível. Consulte a pendência.');

@@ -10,6 +10,7 @@ export type NodeData = {
   status?: string;
   model?: string;
   ratio?: string;
+  resolution?: string;
   duration?: string;
   mediaType?: string;
   pendingTask?: string;

@@ -54,3 +54,5 @@
 .compare-divider{position:absolute;top:0;bottom:0;width:2px;background:#fff;pointer-events:none;z-index:3}.compare-divider span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#16272c;border-radius:20px;padding:5px;box-shadow:0 1px 8px #0008}
 .compare-drag{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;z-index:4}.compare-stage:focus-within{outline:2px solid #06bdd5;outline-offset:-2px}
 .compare-footer{padding:12px 14px;color:#b9b9c4;font-size:11px}.compare-footer label{display:flex;gap:10px;align-items:center}.compare-footer input{flex:1;accent-color:#06bdd5;min-width:0}.compare-footer output{width:34px;text-align:right}.compare-footer small{display:block;margin-top:8px;color:#9696a4;font-size:10px}
+
+.generation-format{padding:7px 12px;font-size:10px;color:#a7acb8;border-top:1px solid #2c2c33}.node-controls .resolution-select{width:68px;color:#d7dee6}

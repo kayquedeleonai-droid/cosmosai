@@ -7,6 +7,22 @@ export const models = [
   {label:'Seedance 2.5',id:'bytedance:seedance@2.5',kind:'video',sizes:{'1:1':[960,960],'16:9':[1280,720],'9:16':[720,1280]}},
   {label:'VEO 3.1',id:'google:3@2',kind:'video',sizes:{'16:9':[1280,720],'9:16':[720,1280]}},
 ];
+// Resolution pairs from each model's Runware reference, checked 2026-10-10.
+// GPT 4K is UHD landscape/portrait only: 4096-square exceeds its pixel budget.
+const presets={
+  'google:4@2':{'1K':models[0].sizes,'2K':{'1:1':[2048,2048],'16:9':[2752,1536],'9:16':[1536,2752]},'4K':{'1:1':[4096,4096],'16:9':[5504,3072],'9:16':[3072,5504]}},
+  gpt:{'1K':models[1].sizes,'2K':{'1:1':[2048,2048],'16:9':[2560,1440],'9:16':[1440,2560]},'4K':{'16:9':[3840,2160],'9:16':[2160,3840]}},
+  'bytedance:seedream@5.0-pro':{'1K':models[3].sizes,'2K':{'1:1':[2048,2048],'16:9':[2816,1584],'9:16':[1584,2816]}},
+  'bytedance:seedance@2.5':{'480p':{'1:1':[640,640],'16:9':[854,480],'9:16':[480,854]},'720p':models[4].sizes,'1080p':{'1:1':[1440,1440],'16:9':[1920,1080],'9:16':[1080,1920]}},
+  'google:3@2':{'720p':models[5].sizes,'1080p':{'16:9':[1920,1080],'9:16':[1080,1920]},'4K':{'16:9':[3840,2160],'9:16':[2160,3840]}},
+};
+export function resolutionPresets(model){return model?presets[model.id.startsWith('openai:')?'gpt':model.id]:undefined;}
+export function availableResolutions(model,ratio){return Object.entries(resolutionPresets(model)||{}).filter(([,sizes])=>Object.hasOwn(sizes,ratio)).map(([key])=>key);}
+export function outputSize(model,ratio,resolution){
+  const options=resolutionPresets(model);
+  const tier=resolution||(model?.kind==='video'?'720p':'1K');
+  return options&&Object.hasOwn(options,tier)&&Object.hasOwn(options[tier],ratio)?options[tier][ratio]:undefined;
+}
 export function findModel(label) {
   const aliases={'Seedance':'Seedance 2.5','VEO':'VEO 3.1','Gerador de imagem':'Nano Banana Pro'};
   return models.find(m=>m.label===(aliases[label]||label)||m.id===label);
@@ -20,8 +36,10 @@ export function buildTask(input,taskUUID) {
   const model=findModel(input.model);
   if(!model)throw new Error('Modelo não suportado. Selecione um modelo Runware.');
   if(typeof input.prompt!=='string'||input.prompt.trim().length<3||input.prompt.length>3000)throw new Error('O prompt deve ter entre 3 e 3000 caracteres.');
-  const size=model.sizes[input.ratio];
-  if(!size)throw new Error('Proporção não suportada por este modelo.');
+  if(!Object.hasOwn(model.sizes,input.ratio))throw new Error('Proporção não suportada por este modelo.');
+  const resolution=input.resolution||(model.kind==='video'?'720p':'1K');
+  const size=outputSize(model,input.ratio,resolution);
+  if(!size)throw new Error('Resolução não suportada para este modelo e proporção.');
   if(input.reference!=null&&!validReference(input.reference))throw new Error('Imagem de referência inválida.');
   const video=model.kind==='video';
   const task={taskType:video?'videoInference':'imageInference',taskUUID,model:model.id,positivePrompt:input.prompt.trim(),numberResults:1,outputType:'URL',outputFormat:video?'MP4':'PNG',deliveryMethod:'async',includeCost:true};
@@ -29,7 +47,7 @@ export function buildTask(input,taskUUID) {
     const duration=Number(input.duration||4);
     if(![4,6,8].includes(duration))throw new Error('Duração inválida. Use 4, 6 ou 8 segundos.');
     task.duration=duration;
-    if(input.reference){task.inputs={frameImages:[input.reference]};task.resolution='720p';}
+    if(input.reference){task.inputs={frameImages:[input.reference]};task.resolution=resolution;}
     else {task.width=size[0];task.height=size[1];}
   }else {task.width=size[0];task.height=size[1];if(input.reference)task.inputs={referenceImages:[input.reference]};}
   return task;

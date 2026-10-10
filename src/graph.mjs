@@ -48,6 +48,7 @@ export function validateProject(value) {
     if(n.data.compareSplit!=null&&(typeof n.data.compareSplit!=='string'||!/^\d{1,3}$/.test(n.data.compareSplit)||Number(n.data.compareSplit)>100))throw new Error('Divisória inválida.');
     if (n.data.result != null && (typeof n.data.result !== 'string' || (n.data.result !== '/demo-landscape.svg' && !safeMedia(n.data.result) && !/^data:image\/(png|jpeg|webp);base64,/.test(n.data.result)))) throw new Error('Resultado inválido.');
     if(n.data.pendingTask!=null&&!/^[0-9a-f-]{36}$/i.test(n.data.pendingTask))throw new Error('Geração pendente inválida.');
+    if(n.data.resolution!=null&&!['480p','720p','1080p','1K','2K','4K'].includes(n.data.resolution))throw new Error('Resolução inválida.');
     if(n.data.duration!=null&&!['4','6','8'].includes(n.data.duration))throw new Error('Duração inválida.');
     if(n.data.mediaType!=null&&!['image','video'].includes(n.data.mediaType))throw new Error('Tipo de mídia inválido.');
     if (n.data.image != null && (typeof n.data.image !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(n.data.image))) throw new Error('Imagem inválida.');
