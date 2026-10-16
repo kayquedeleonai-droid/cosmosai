@@ -12,7 +12,7 @@ export function cleanProject(input: unknown): Project {
     nodes: p.nodes.map((n: FlowNode) => ({
       id: n.id, type: 'studio', position: n.position,
       data: Object.fromEntries(Object.entries(n.data).filter(([key, value]) =>
-        ['kind','prompt','image','result','model','ratio','quality','resolution','duration','mediaType','pendingTask','cost','generatedModel','generatedResolution','compareMode','compareSplit','compareOutput'].includes(key) && typeof value === 'string')),
+        ['kind','referenceSlots','prompt','image','result','model','ratio','quality','resolution','duration','mediaType','pendingTask','cost','generatedModel','generatedResolution','compareMode','compareSplit','compareOutput'].includes(key) && typeof value === 'string')),
     })) as FlowNode[],
     edges: p.edges.map((e: Project['edges'][number]) => ({ id:e.id, source:e.source, target:e.target, ...(e.targetHandle?{targetHandle:e.targetHandle}:{}) })),
   };

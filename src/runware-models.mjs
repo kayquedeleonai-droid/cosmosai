@@ -47,6 +47,21 @@ export function switchModel(data,label){
   const fallback=model.kind==='video'?'720p':'1K';
   return {...(model.kind==='video'?{duration:durationOptions(model).includes(data.duration)?data.duration:'4'}:{}),model:model.label,ratio,resolution:resolutions.includes(data.resolution)?data.resolution:fallback,quality:qualityOptions(model).includes(data.quality)?data.quality:undefined,status:undefined};
 }
+// Runware input schemas checked 2026-10-16; video slots are first/last frames.
+export function referenceLimit(model){
+ if(!model)return 1;
+ if(model.kind==='video')return model.id==='klingai:kling-video@3.0-turbo'?1:2;
+ if(model.id.startsWith('openai:'))return 16;
+ return model.id==='bytedance:seedream@5.0-pro'?10:14;
+}
+export const referenceHandle=i=>i===0?'reference':`reference-${i+1}`;
+export function referenceIndex(handle){if(handle==='reference')return 0;const m=/^reference-([2-9]|1[0-6])$/.exec(handle||'');return m?Number(m[1])-1:-1;}
+export function referenceSlots(data){return Math.min(referenceLimit(findModel(data.model||(data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'))),Math.max(1,Number(data.referenceSlots)||1));}
+export function collectReferences(node,edges,values){
+ const slots=Array.from({length:referenceSlots(node.data)},(_,i)=>{const edge=edges.find(e=>e.target===node.id&&e.targetHandle===referenceHandle(i));if(!edge)return undefined;const value=values.get(edge.source);if(!value?.url||value.mediaType!=='image')throw new Error('Uma referência não retornou imagem.');return value.url;});
+ if(node.data.kind==='video'&&slots[1]&&!slots[0])throw new Error('Conecte o frame inicial antes do frame final.');
+ return slots.filter(Boolean);
+}
 export function safeMedia(value) {
   if(typeof value!=='string')return false;
   try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(u.hostname==='im.runware.ai'||u.hostname==='vm.runware.ai'||u.hostname==='assets.runware.ai');}catch{return false;}
@@ -60,18 +75,21 @@ export function buildTask(input,taskUUID) {
   const resolution=input.resolution||(model.kind==='video'?'720p':'1K');
   const size=outputSize(model,input.ratio,resolution);
   if(!size)throw new Error('Resolução não suportada para este modelo e proporção.');
-  if(input.reference!=null&&!validReference(input.reference))throw new Error('Imagem de referência inválida.');
+  if(input.references!=null&&input.reference!=null)throw new Error('Envie reference ou references, não ambos.');
+  const references=input.references??(input.reference!=null?[input.reference]:[]);
+  if(!Array.isArray(references)||references.length>referenceLimit(model)||references.some(r=>!validReference(r)))throw new Error('Imagens de referência inválidas ou acima do limite do modelo.');
+  if(references.reduce((sum,r)=>sum+r.length,0)>32000000)throw new Error('Referências excedem o limite total de 32 MB.');
   const video=model.kind==='video';
   const task={taskType:video?'videoInference':'imageInference',taskUUID,model:model.id,positivePrompt:input.prompt.trim(),numberResults:1,outputType:'URL',outputFormat:video?'MP4':'PNG',deliveryMethod:'async',includeCost:true};
   if(input.quality!=null){if(!qualityOptions(model).includes(input.quality))throw new Error('Qualidade não suportada por este modelo.');task.settings={quality:input.quality};}
   if(video){
     const duration=Number(input.duration||4);
     if(!durationOptions(model).includes(String(duration)))throw new Error('Duração não suportada por este modelo.');
-    if(model.id==='klingai:kling-video@3.0-turbo'&&input.reference&&input.prompt.length>2500)throw new Error('Kling com imagem aceita prompts de até 2500 caracteres.');
+    if(model.id==='klingai:kling-video@3.0-turbo'&&references.length&&input.prompt.length>2500)throw new Error('Kling com imagem aceita prompts de até 2500 caracteres.');
     task.duration=duration;
-    if(input.reference){task.inputs={frameImages:[input.reference]};task.resolution=model.id==='bytedance:seedance@2.0'&&resolution==='4K'?'4k':resolution;}
+    if(references.length){task.inputs={frameImages:references};task.resolution=model.id==='bytedance:seedance@2.0'&&resolution==='4K'?'4k':resolution;}
     else {task.width=size[0];task.height=size[1];}
-  }else {task.width=size[0];task.height=size[1];if(input.reference)task.inputs={referenceImages:[input.reference]};}
+  }else {task.width=size[0];task.height=size[1];if(references.length)task.inputs={referenceImages:references};}
   return task;
 }
 export function readResult(body,taskUUID) {

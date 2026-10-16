@@ -20,7 +20,7 @@ export default {
   try{
    const reader=request.body?.getReader();if(!reader)return reply({error:'Requisição vazia.'},400);
    const chunks=[];let length=0;
-   while(true){const {value,done}=await reader.read();if(done)break;length+=value.length;if(length>2200000){await reader.cancel();return reply({error:'Referência muito grande.'},413);}chunks.push(value);}
+   while(true){const {value,done}=await reader.read();if(done)break;length+=value.length;if(length>33000000){await reader.cancel();return reply({error:'Referência muito grande.'},413);}chunks.push(value);}
    const bytes=new Uint8Array(length);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}
    let input;try{input=JSON.parse(new TextDecoder().decode(bytes));if(!input||typeof input!=='object'||Array.isArray(input))throw 0;}catch{return reply({error:'JSON inválido.'},400);}
    const path=new URL(request.url).pathname;
@@ -72,7 +72,7 @@ export default {
     if(job&&job.signature!==signature)return reply({error:'Este identificador já pertence a outra geração.'},409);
     if(!job){
      const units=task.taskType==='videoInference'?10:1,now=Date.now(),today=day();
-     const metadata=JSON.stringify({prompt:input.prompt,ratio:input.ratio,resolution:input.resolution,quality:input.quality,duration:input.duration,hasReference:!!input.reference,estimated:quote.usd});
+     const metadata=JSON.stringify({prompt:input.prompt,ratio:input.ratio,resolution:input.resolution,quality:input.quality,duration:input.duration,hasReference:!!input.reference||!!input.references?.length,estimated:quote.usd});
      const reservation=await env.DB.prepare(`INSERT OR IGNORE INTO jobs(id,uid,day,units,signature,created,reserved,model,metadata,projectId,nodeId) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE
       (SELECT paused FROM settings WHERE id=1)=0 AND (SELECT status FROM accounts WHERE uid=?)='active' AND
       (SELECT COALESCE(SUM(units),0) FROM jobs WHERE day=? AND uid=?)+?<=? AND

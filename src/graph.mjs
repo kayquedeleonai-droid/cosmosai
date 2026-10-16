@@ -1,4 +1,4 @@
-import {safeMedia} from './runware-models.mjs';
+import {safeMedia,referenceIndex,referenceSlots} from './runware-models.mjs';
 export const catalog = {
   compare: { label: 'Comparar', category: 'UTILITÁRIO', color: '#06bdd5', input: 'image', output: 'image', description: 'Compare duas imagens sem consumir créditos.' },
   prompt: { label: 'Prompt', category: 'ENTRADA', color: '#c0a1ff', input: null, output: 'text', description: 'Transforme uma ideia em direção criativa.' },
@@ -28,10 +28,11 @@ export function validConnection(connection, nodes, edges) {
   if (!a || !b || a.id === b.id) return false;
   if(b.data.kind==='compare'&&!['a','b'].includes(connection.targetHandle))return false;
   if(['a','b'].includes(connection.targetHandle)&&b.data.kind!=='compare')return false;
-  if(connection.targetHandle==='reference'&&!['generate','video'].includes(b.data.kind))return false;
+  const ref=referenceIndex(connection.targetHandle);
+  if(ref>=0&&(!['generate','video'].includes(b.data.kind)||ref>=referenceSlots(b.data)))return false;
   const output=catalog[a.data.kind]?.output;
-  const input=connection.targetHandle==='reference'&&['generate','video'].includes(b.data.kind)?'image':catalog[b.data.kind]?.input;
-  if(connection.sourceHandle!=null||![null,undefined,'reference','a','b'].includes(connection.targetHandle))return false;
+  const input=ref>=0&&['generate','video'].includes(b.data.kind)?'image':catalog[b.data.kind]?.input;
+  if(connection.sourceHandle!=null||(ref<0&&![null,undefined,'a','b'].includes(connection.targetHandle)))return false;
   if(!output||!(output===input||(b.data.kind==='output'&&output==='video')))return false;
   if (edges.some(e => e.target === b.id && (e.targetHandle||null)===(connection.targetHandle||null))) return false;
   try { orderGraph(nodes, [...edges, connection]); return true; } catch { return false; }
@@ -40,6 +41,7 @@ export function validateProject(value) {
   if (!value || value.version !== 1 || typeof value.name !== 'string' || value.name.length > 120 || !Array.isArray(value.nodes) || !Array.isArray(value.edges) || value.nodes.length > 100 || value.edges.length > 200) throw new Error('Arquivo de projeto inválido.');
   for (const n of value.nodes) {
     if (typeof n.id !== 'string' || !Object.hasOwn(catalog,n.data?.kind) || !Number.isFinite(n.position?.x) || !Number.isFinite(n.position?.y)) throw new Error('Node inválido.');
+    if(n.data.referenceSlots!=null&&(typeof n.data.referenceSlots!=='string'||!/^([1-9]|1[0-6])$/.test(n.data.referenceSlots)||Number(n.data.referenceSlots)>referenceSlots(n.data)))throw new Error('Quantidade de referências inválida.');
     if (n.data.prompt != null && typeof n.data.prompt !== 'string') throw new Error('Prompt inválido.');
     if (n.data.model != null && (typeof n.data.model !== 'string' || n.data.model.length > 80)) throw new Error('Modelo inválido.');
     if (n.data.ratio != null && !['1:1','16:9','9:16'].includes(n.data.ratio)) throw new Error('Proporção inválida.');

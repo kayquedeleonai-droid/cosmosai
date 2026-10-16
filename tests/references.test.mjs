@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildTask,collectReferences,referenceLimit,findModel} from '../src/runware-models.mjs';
+import {validConnection,validateProject} from '../src/graph.mjs';
+const url='https://im.runware.ai/one.png',url2='https://im.runware.ai/two.png';
+const node={id:'g',position:{x:0,y:0},data:{kind:'generate',model:'Nano Banana Pro',referenceSlots:'2'}};
+const images=['a','b'].map(id=>({id,position:{x:0,y:0},data:{kind:'image'}}));
+const edges=[{id:'2',source:'b',target:'g',targetHandle:'reference-2'},{id:'1',source:'a',target:'g',targetHandle:'reference'}];
+test('reference slots persist and collect in port order, independent of edge order',()=>{const values=new Map([['a',{url,mediaType:'image'}],['b',{url:url2,mediaType:'image'}]]);assert.deepEqual(collectReferences(node,edges,values),[url,url2]);assert.equal(validateProject({version:1,name:'test',nodes:[node,...images],edges}).nodes[0].data.referenceSlots,'2');assert.equal(validConnection({...edges[0],targetHandle:'reference-3'},[node,...images],[]),false);});
+test('multiple references reach provider and legacy single references remain compatible',()=>{const base={model:'Nano Banana Pro',prompt:'mountains',ratio:'1:1'};assert.deepEqual(buildTask({...base,references:[url,url2]},crypto.randomUUID()).inputs.referenceImages,[url,url2]);assert.deepEqual(buildTask({...base,reference:url},crypto.randomUUID()).inputs.referenceImages,[url]);assert.throws(()=>buildTask({...base,references:Array(15).fill(url)},crypto.randomUUID()));assert.equal(referenceLimit(findModel('Seedream 5.0 Pro')),10);});
+test('video first/last frames preserve order and Kling rejects a second frame',()=>{const base={model:'Seedance 2.5',prompt:'mountains',ratio:'16:9',references:[url,url2]};assert.deepEqual(buildTask(base,crypto.randomUUID()).inputs.frameImages,[url,url2]);assert.throws(()=>buildTask({...base,model:'Kling 3.0 Turbo'},crypto.randomUUID()));assert.throws(()=>collectReferences({...node,data:{...node.data,kind:'video',model:'Seedance 2.5'}},[edges[0]],new Map([['b',{url:url2,mediaType:'image'}]])),/inicial/);});
