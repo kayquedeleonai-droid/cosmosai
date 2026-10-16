@@ -3,6 +3,24 @@ import assert from 'node:assert/strict';
 import {magnificTask,magnificOptions,precisionModel,topazModels} from '../src/magnific.mjs';
 import {createMagnific,pollMagnific,readMagnific} from '../worker/magnific.mjs';
 import {validConnection} from '../src/graph.mjs';
+test('remote images use Worker-compatible redirect mode and never follow redirects',async()=>{
+ const original=globalThis.fetch;let submissions=0,redirect=false;
+ try{
+ globalThis.fetch=async(url,options)=>{
+  if(url==='https://im.runware.ai/input.png'){
+   assert.equal(options.redirect,'manual');assert.equal(options.headers,undefined);
+   return redirect?new Response(null,{status:302,headers:{Location:'https://untrusted.test/image.png'}}):new Response(new Uint8Array([1,2,3]),{headers:{'Content-Type':'image/png'}});
+  }
+  assert.equal(url,'https://api.magnific.com/v1/ai/image-upscaler');submissions++;
+  assert.equal(JSON.parse(options.body).image,'AQID');
+  return Response.json({data:{task_id:'12345678-1234-1234-1234-123456789abc',status:'IN_PROGRESS'}});
+ };
+ const task=magnificTask({reference:'https://im.runware.ai/input.png'});
+ assert.equal((await createMagnific(task,'test')).result.state,'processing');assert.equal(submissions,1);
+ redirect=true;
+ const rejected=await createMagnific(task,'test');assert.equal(rejected.result.state,'error');assert.match(rejected.result.error,/redirecionado/);assert.equal(submissions,1);
+ }finally{globalThis.fetch=original;}
+});
 test('Precision and Topaz use distinct settings, endpoints and media types',async()=>{
  const original=globalThis.fetch,seen=[];
  try{

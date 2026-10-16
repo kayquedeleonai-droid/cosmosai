@@ -14,7 +14,10 @@ export function readMagnific(body,model){
 async function imageBase64(image){
  if(image.startsWith('data:'))return image.split(',')[1];
  if(!safeMedia(image))throw new Error('Imagem inválida.');
- const response=await fetch(image,{redirect:'error',signal:AbortSignal.timeout(15000)});
+ // Workers supports manual/follow only. Inspect redirects without following
+ // an unvalidated Location to another host.
+ const response=await fetch(image,{redirect:'manual',signal:AbortSignal.timeout(15000)});
+ if(response.status>=300&&response.status<400){await response.body?.cancel();throw new Error('O endereço da imagem foi redirecionado. Carregue a imagem novamente antes de ampliar.');}
  if(!response.ok||!/^image\/(png|jpeg|webp)(;|$)/i.test(response.headers.get('content-type')||''))throw new Error('Não foi possível ler a imagem original. Use PNG, JPEG ou WebP.');
  const reader=response.body.getReader(),chunks=[];let size=0;
  while(true){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>20000000){await reader.cancel();throw new Error('Use uma imagem de até 20 MB.');}chunks.push(value);}
