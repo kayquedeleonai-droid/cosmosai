@@ -67,5 +67,5 @@
 
 .cloud-warning{padding:10px 20px;background:#422c19;color:#ffddb6;font-size:12px;line-height:1.5;z-index:6}.cloud-warning button{text-decoration:underline;color:#fff;margin-left:12px}
 
-.mode-select .react-flow__pane{cursor:crosshair}
+.mode-select .react-flow__pane{cursor:default}
 .react-flow__selection,.react-flow__nodesselection-rect{background:#06bdd514!important;border:1px solid #06bdd5!important;border-radius:4px}
