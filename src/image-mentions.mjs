@@ -35,3 +35,15 @@ export function resolveImageMentions(prompt,nodes,targetId,connected=[],model=''
  });
  return {prompt:text,references,...(seedance&&mentioned?{referenceMode:true,referenceVideos}:{})};
 }
+
+export function mentionParts(text,names){
+ const known=new Set(names),parts=[];let cursor=0;
+ for(const match of text.matchAll(tokens())){
+  const start=match.index+match[1].length,end=match.index+match[0].length;
+  if(!known.has(match[2]||match[3]))continue;
+  if(start>cursor)parts.push({text:text.slice(cursor,start),mention:false});
+  parts.push({text:text.slice(start,end),mention:true});cursor=end;
+ }
+ if(cursor<text.length)parts.push({text:text.slice(cursor),mention:false});
+ return parts;
+}

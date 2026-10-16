@@ -197,3 +197,14 @@
 body:has(.pwa-controls button) .cosmos-assistant{bottom:72px}body:has(.pwa-controls button) .orbi-panel{max-height:calc(100dvh - 175px)}
 
 .canvas-file-drop{position:absolute;inset:12px;z-index:20;pointer-events:none;border:1px dashed #08bfd5;border-radius:12px;background:#08bfd50a;display:flex;align-items:flex-start;justify-content:center;padding:24px;color:#9beaf2;font-size:12px;text-shadow:0 1px 5px #000}
+
+/* Mirror plain text without replacing the native textarea or changing glyph widths. */
+.prompt-text-stack{position:relative}
+.prompt-highlight-clip{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:12px 12px 0 0}
+.prompt-highlight{box-sizing:border-box;border:1px solid transparent;padding:15px;font-family:inherit;font-size:13px;line-height:1.8;font-weight:400;white-space:pre-wrap;overflow-wrap:break-word;color:#b6b6bd}
+.prompt-text-stack:focus-within .prompt-highlight{color:#e0e3ea}
+.prompt-highlight strong{font-weight:inherit;color:#52d9e9;-webkit-text-stroke:.35px currentColor}
+.prompt-field .prompt-text-stack .prompt-text{position:relative;color:transparent;-webkit-text-fill-color:transparent;caret-color:#52d9e9}
+.prompt-field .prompt-text-stack .prompt-text::placeholder{-webkit-text-fill-color:#65656b;color:#65656b}
+.prompt-field .prompt-text-stack .prompt-text::selection{background:#08b5ce55;color:transparent;-webkit-text-fill-color:transparent}
+@media(forced-colors:active){.prompt-highlight-clip{display:none}.prompt-field .prompt-text-stack .prompt-text{color:CanvasText;-webkit-text-fill-color:CanvasText}}

@@ -40,3 +40,12 @@ test('default model names are readable, unique and keep manual names',async()=>{
  ]);
  assert.deepEqual(nodes.map(imageName),['Nano Banana Pro','Nano Banana Pro 2','Character','Seedance 2.5']);
 });
+
+test('mention highlighting preserves exact text, Unicode, bracket names and line breaks',async()=>{
+ const {mentionParts}=await import('../src/image-mentions.mjs');
+ const text='Use @oficina_a e @[Nano Banana Pro]\n(@ação), email@oficina_a e @missing';
+ const parts=mentionParts(text,['oficina_a','Nano Banana Pro','ação']);
+ assert.equal(parts.map(p=>p.text).join(''),text);
+ assert.deepEqual(parts.filter(p=>p.mention).map(p=>p.text),['@oficina_a','@[Nano Banana Pro]','@ação']);
+ assert.equal(mentionParts('<script>@missing</script>',[]).some(p=>p.mention),false);
+});
