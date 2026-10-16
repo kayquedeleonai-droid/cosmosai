@@ -34,7 +34,7 @@ export default {
    if(path.startsWith('/admin/')){
     if(!isAdmin)return reply({error:'Acesso exclusivo do administrador.'},403);
     if(path==='/admin/balance'){
-     try{return reply(await readBalance(env.RUNWARE_API_KEY));}catch(error){return reply({error:error.name==='TimeoutError'?'Runware demorou para responder à consulta de saldo.':error.message||'Saldo Runware indisponível.'},502);}
+     try{return reply(await readBalance(env.RUNWARE_API_KEY));}catch(error){const message=error.name==='TimeoutError'?'Runware demorou para responder à consulta de saldo.':error.message||'Saldo Runware indisponível.';console.warn('runware_balance_failed',message);return reply({error:message},502);}
     }
     if(path==='/admin/users'){
      const offset=Number.isInteger(input.offset)&&input.offset>=0?Math.min(input.offset,100000):0;

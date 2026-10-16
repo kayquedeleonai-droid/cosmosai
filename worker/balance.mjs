@@ -7,8 +7,10 @@ export async function readBalance(key){
   const balance=body.data?.find(item=>item.taskUUID===taskUUID&&(!item.taskType||item.taskType==='accountManagement'))?.balance;
   if(body.errors?.length){const code=String(body.errors[0]?.code||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,60);throw new Error(`Runware recusou a consulta de saldo${code?` (${code})`:''}.`);}
   const numeric=value=>typeof value==='number'?value:typeof value==='string'&&/^-?\d+(\.\d+)?$/.test(value)?Number(value):NaN;
-  const amount=numeric(balance?.amount),freeBalance=numeric(balance?.freeBalance);
-  if(!balance||!Number.isFinite(amount)||balance.currency!=='USD')throw new Error('Runware retornou um formato de saldo não reconhecido.');
+  // The live API also returns balance as a scalar USD credit amount.
+  const scalar=typeof balance==='number'||typeof balance==='string';
+  const amount=numeric(scalar?balance:balance?.amount),freeBalance=numeric(balance?.freeBalance);
+  if(!Number.isFinite(amount)||(!scalar&&balance?.currency!=='USD'))throw new Error('Runware retornou um formato de saldo não reconhecido.');
   // Never forward account details, team members or API keys returned by getDetails.
   return {amount,currency:'USD',...(Number.isFinite(freeBalance)?{freeBalance}:{}),updatedAt:Date.now()};
 }

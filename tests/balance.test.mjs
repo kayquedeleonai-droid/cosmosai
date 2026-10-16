@@ -14,3 +14,15 @@ test('balance accepts zero, strips account data and rejects unavailable or inval
  }finally{globalThis.fetch=original;}
 });
 
+test('live scalar balance format preserves USD amounts, including zero, without account metadata',async()=>{
+ const original=globalThis.fetch;
+ try{
+  let balance=7.125;
+  globalThis.fetch=async(_url,options)=>{const [task]=JSON.parse(options.body);return Response.json({data:[{...task,balance,organizationName:'Private',apiKeys:['secret']}]});};
+  const result=await readBalance('test');assert.equal(result.amount,7.125);assert.equal(result.currency,'USD');assert.deepEqual(Object.keys(result).sort(),['amount','currency','updatedAt']);
+  balance=0;assert.equal((await readBalance('test')).amount,0);
+  balance='4.25';assert.equal((await readBalance('test')).amount,4.25);
+  for(const invalid of [null,true,'',{},'invalid']){balance=invalid;await assert.rejects(readBalance('test'),/formato/);}
+ }finally{globalThis.fetch=original;}
+});
+
