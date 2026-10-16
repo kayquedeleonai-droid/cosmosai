@@ -219,6 +219,14 @@ body:has(.pwa-controls button) .cosmos-assistant{bottom:72px}body:has(.pwa-contr
 .orbi-plan ul{padding-left:16px;max-height:210px;overflow:auto;overflow-wrap:anywhere}.orbi-plan li{margin:8px 0}.orbi-plan li span{display:block;color:#a5bdc5;white-space:pre-wrap}.orbi-plan>button{background:#123e49;color:#7de8ee;border:1px solid #24616c;border-radius:8px;padding:8px 12px;margin-bottom:8px}.orbi-plan small{display:block;color:#8da8b0}
 .orbi-voice{margin:10px 0}.orbi-voice>div{display:flex;gap:8px;flex-wrap:wrap}.orbi-voice button{display:flex;align-items:center;gap:5px;border:1px solid #30434a;background:#17252c;color:#a9c1ca;border-radius:8px;padding:7px 9px;font-size:11px}.orbi-voice button[aria-pressed=true]{color:#7ef1e1;background:#17433f;border-color:#418e80}.orbi-voice small{display:block;margin-top:6px;color:#8da8b0;font-size:10px}.orbi-voice button:disabled{opacity:.45}
 
-.input-slot{display:contents}.input-slot-label{position:absolute;left:12px;transform:translateY(-50%);z-index:13;max-width:150px;padding:3px 7px;border:1px solid #24434a;border-radius:5px;background:#101c22d9;color:#93bcc4;font-size:9px;line-height:12px;white-space:nowrap;pointer-events:none}.input-slot-label.connected{color:#66e3ef;border-color:#187c88}.prompt-slot-label{color:#e899c4;border-color:#553348}.video-input-mode{position:absolute;right:24px;top:8px;z-index:14}.video-input-mode .node-select{font-size:9px;min-height:23px;height:23px;max-width:135px}.node-video>.node-preview{min-height:180px}
+.input-slot{display:contents}.node-video>.node-preview{min-height:180px}
 
 .video-playback{top:50%;left:50%;transform:translate(-50%,-50%);z-index:2}.video-preview-player.is-paused .video-playback{opacity:1;pointer-events:auto}.video-playback button{width:40px;height:40px;border-color:#ffffff50;background:#11232b99;box-shadow:0 2px 12px #0004}.paid-play{position:relative;display:inline-flex;align-items:center;justify-content:center;width:23px;height:22px;padding-right:6px}.paid-play b{position:absolute;right:0;bottom:0;font-size:10px;font-weight:700;line-height:12px;color:currentColor}.node-controls>.node-play:has(.paid-play){width:30px;min-width:30px}
+
+/* Video input roles stay in tooltips; reference inputs use mint aqua. */
+.node-video.reference-mode .react-flow__handle.image-port{--port-color:#46dcb0}
+.node-video.reference-mode>.reference-add{border-color:#46dcb0;color:#46dcb0;background:#142d28}
+.node-video.reference-mode>.reference-add:hover{background:#1a4136;box-shadow:0 0 0 5px #46dcb020}
+.node-video>.node-controls{height:auto;min-height:39px;flex-wrap:wrap;gap:4px}
+.studio-node .node-select.video-input-mode{max-width:86px}
+.node-video.reference-mode .node-select.video-input-mode{color:#76e9c6;border-color:#46dcb038}
