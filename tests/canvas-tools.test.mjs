@@ -1,6 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {nearestConnection,segmentsCross} from '../src/canvas-tools.mjs';
+import {nearestConnection,segmentsCross,layoutChangesDuringRun} from '../src/canvas-tools.mjs';
+test('generation permits layout and selection changes but blocks graph mutations',()=>{
+  const layout=[{type:'position',id:'a',position:{x:100,y:200}},{type:'dimensions',id:'a',dimensions:{width:430,height:430}},{type:'select',id:'a',selected:true}];
+  assert.deepEqual(layoutChangesDuringRun([...layout,{type:'remove',id:'a'},{type:'replace',id:'a',item:{}},{type:'add',item:{}}]),layout);
+});
 const n=(id,kind,x)=>({id,position:{x,y:0},data:{kind,model:kind==='video'?'Seedance 2.5':'Nano Banana Pro'}});
 test('knife crosses both directions and endpoints but not disjoint lines',()=>{const a={x:0,y:0},b={x:10,y:10},c={x:0,y:10},d={x:10,y:0};assert.ok(segmentsCross(a,b,c,d));assert.ok(segmentsCross(b,a,d,c));assert.ok(segmentsCross(a,b,b,{x:20,y:0}));assert.ok(!segmentsCross(a,b,{x:20,y:20},{x:30,y:30}));});
 test('auto-connect chooses nearest compatible free image slot and skips occupied inputs',()=>{const nodes=[n('a','generate',0),n('b','video',500),n('c','output',900)];assert.deepEqual(nearestConnection('a',nodes,[]),{source:'a',target:'b',targetHandle:'reference'});assert.deepEqual(nearestConnection('a',nodes,[{source:'a',target:'b',targetHandle:'reference'}]),{source:'a',target:'c'});});

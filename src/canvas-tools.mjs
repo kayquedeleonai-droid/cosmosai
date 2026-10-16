@@ -1,5 +1,7 @@
 import {catalog,validConnection} from './graph.mjs';
 import {referenceSlots,referenceHandle} from './runware-models.mjs';
+// Keep layout interactive without removing or replacing nodes used by a running task.
+export function layoutChangesDuringRun(changes){return changes.filter(change=>['position','dimensions','select'].includes(change.type));}
 export function segmentsCross(a,b,c,d){
   const cross=(p,q,r)=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
   const on=(p,q,r)=>r.x>=Math.min(p.x,q.x)-.01&&r.x<=Math.max(p.x,q.x)+.01&&r.y>=Math.min(p.y,q.y)-.01&&r.y<=Math.max(p.y,q.y)+.01;
