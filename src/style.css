@@ -117,8 +117,8 @@
 .pwa-controls>button:hover{background:#193841}.pwa-controls>button:disabled{opacity:.6}
 .pwa-help{position:absolute;bottom:44px;right:0;width:290px;padding:18px;border:1px solid #344149;background:#181d23;border-radius:12px;box-shadow:0 8px 32px #0007;color:#bcc8d1;line-height:1.6}.pwa-help>button{float:right;color:#acb8c1}.pwa-help strong{color:#e2f4f7}.pwa-help p{margin:12px 0 0}.pwa-controls>p{padding:10px;background:#35252b;border-radius:8px;line-height:1.5;color:#f3c3d0}
 
-.media-viewer{position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:62px 30px 28px;border:0;background:#090b10ed;color:#d7e6ec;overflow:hidden}
-.media-viewer::backdrop{background:#05060aeb;backdrop-filter:blur(8px)}
+.media-viewer{position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:62px 30px 28px;border:0;background:transparent;color:#d7e6ec;overflow:hidden}
+.media-viewer::backdrop{background:rgba(5,6,10,.48);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
 .media-viewer[open]{display:flex;align-items:center;justify-content:center}
 .media-viewer>img,.media-viewer>video{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:8px}
 .media-viewer>header{position:absolute;top:14px;left:24px;right:24px;display:flex;align-items:center;gap:14px;font-size:12px;color:#c3ced9}
