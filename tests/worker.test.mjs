@@ -30,7 +30,9 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
    assert.equal((await call('generate',input)).status,200);assert.equal(charges,1);
    assert.equal((await call('generate',{...input,prompt:'A changed prompt'})).status,409);
    assert.equal((await call('status',{requestId:input.requestId},tokenB)).status,404);
-   assert.equal((await call('generate',{...input,requestId:crypto.randomUUID()})).status,429);
+   env.ADMIN_UID='owner';
+   assert.equal((await call('generate',{...input,requestId:crypto.randomUUID(),isAdmin:true})).status,429);
+   env.ADMIN_UID='alice';
    assert.equal((await call('generate',{...input,requestId:crypto.randomUUID()},tokenB)).status,403);
    assert.equal(charges,1);
    assert.equal((await call('admin/users',{},tokenB)).status,403);
@@ -62,6 +64,20 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
    let background;await worker.scheduled({},env,{waitUntil(p){background=p;}});await background;
    assert.equal((await (await call('status',{requestId:recoveryId})).json()).state,'success');
    assert.equal(charges,3);
+
+   // The verified owner can generate beyond quantity and monetary caps.
+   env.USER_DAILY_UNITS='1';env.GLOBAL_DAILY_UNITS='1';
+   await call('admin/settings',{daily_usd:0,paused:false});
+   await call('admin/account',{uid:'alice',status:'active',daily_usd:0});
+   const video={requestId:crypto.randomUUID(),model:'Seedance 2.5',prompt:'A tree in the wind',ratio:'16:9',resolution:'720p',duration:4};
+   assert.equal((await call('generate',video)).status,200);
+   assert.equal((await call('generate',video)).status,200);assert.equal(charges,4);
+   assert.equal((await call('generate',{...video,requestId:crypto.randomUUID()})).status,200);assert.equal(charges,5);
+   await call('admin/account',{uid:'bob',status:'active',daily_usd:10});
+   assert.equal((await call('generate',{...video,requestId:crypto.randomUUID(),isAdmin:true},tokenB)).status,429);
+   await call('admin/settings',{daily_usd:0,paused:true});
+   assert.equal((await call('generate',{...video,requestId:crypto.randomUUID()})).status,429);
+   assert.equal(charges,5);
 
  }finally{globalThis.fetch=originalFetch;database.close();}
 });

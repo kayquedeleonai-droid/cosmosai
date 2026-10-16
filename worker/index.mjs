@@ -78,11 +78,11 @@ export default {
      const units=task.taskType==='videoInference'?10:1,now=Date.now(),today=day();
      const metadata=JSON.stringify({prompt:input.prompt,ratio:input.ratio,resolution:input.resolution,quality:input.quality,duration:input.duration,hasReference:!!input.reference||!!input.references?.length,estimated:quote.usd});
      const reservation=await env.DB.prepare(`INSERT OR IGNORE INTO jobs(id,uid,day,units,signature,created,reserved,model,metadata,projectId,nodeId) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE
-      (SELECT paused FROM settings WHERE id=1)=0 AND (SELECT status FROM accounts WHERE uid=?)='active' AND
+      (SELECT paused FROM settings WHERE id=1)=0 AND (SELECT status FROM accounts WHERE uid=?)='active' AND (?=1 OR (
       (SELECT COALESCE(SUM(units),0) FROM jobs WHERE day=? AND uid=?)+?<=? AND
       (SELECT COALESCE(SUM(units),0) FROM jobs WHERE day=?)+?<=? AND
       (SELECT COALESCE(SUM(${spent}),0) FROM jobs WHERE day=? AND uid=?)+?<=(SELECT daily_usd FROM accounts WHERE uid=?) AND
-      (SELECT COALESCE(SUM(${spent}),0) FROM jobs WHERE day=?)+?<=(SELECT daily_usd FROM settings WHERE id=1)`).bind(input.requestId,uid,today,units,signature,now,quote.reserve,input.model,metadata,typeof input.projectId==='string'?input.projectId.slice(0,80):null,typeof input.nodeId==='string'?input.nodeId.slice(0,100):null,uid,today,uid,units,Number(env.USER_DAILY_UNITS)||10,today,units,Number(env.GLOBAL_DAILY_UNITS)||20,today,uid,quote.reserve,uid,today,quote.reserve).run();
+      (SELECT COALESCE(SUM(${spent}),0) FROM jobs WHERE day=?)+?<=(SELECT daily_usd FROM settings WHERE id=1)))`).bind(input.requestId,uid,today,units,signature,now,quote.reserve,input.model,metadata,typeof input.projectId==='string'?input.projectId.slice(0,80):null,typeof input.nodeId==='string'?input.nodeId.slice(0,100):null,uid,Number(isAdmin),today,uid,units,Number(env.USER_DAILY_UNITS)||10,today,units,Number(env.GLOBAL_DAILY_UNITS)||20,today,uid,quote.reserve,uid,today,quote.reserve).run();
      if(!reservation.meta.changes){job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();if(!job)return reply({error:'Geração pausada ou limite diário atingido (orçamento ou quantidade). Consulte o administrador. Limites renovam às 00h UTC.'},429);if(job.uid!==uid||job.signature!==signature)return reply({error:'Identificador já utilizado.'},409);}
      else{
       let result;try{result=await callRunware(task,env.RUNWARE_API_KEY);}catch{return reply({state:'processing',requestId:input.requestId,message:'Pedido enviado. Consulte o estado para evitar cobrança duplicada.'});}
