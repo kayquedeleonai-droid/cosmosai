@@ -1,3 +1,4 @@
+import NodeSelect from './NodeSelect';
 import {useState} from 'react';
 import {Handle,Position,useNodes,useEdges} from '@xyflow/react';
 import {resolveImage} from './compare.mjs';
@@ -14,8 +15,8 @@ export default function CompareNode({id,data,selected,update,running}:{id:string
   return <article className={`studio-node node-compare ${selected?'selected':''}`} style={{'--node-accent':'#06bdd5'} as React.CSSProperties}>
     <div className="node-title"><span/>Comparar<small>SEM CRÉDITOS</small></div>
     <div className="model-inputs">
-      {(['a','b'] as const).map((port,i)=><div className="model-input-row" key={port}><Handle id={port} type="target" position={Position.Left} title={`Entrada Imagem ${port.toUpperCase()}`} aria-label={`Entrada Imagem ${port.toUpperCase()}`} className="image-port" style={{top:22+i*34}}/><span>Imagem {port.toUpperCase()}</span><small>{(port==='a'?a:b)?'Pronta':'Conecte uma imagem'}</small></div>)}
-      <div className="model-input-row model-output-row"><small>Saída</small><label className="nodrag">Imagem <select aria-label="Imagem de saída" disabled={running} value={data.compareOutput||'a'} onChange={e=>update(id,{compareOutput:e.target.value})}><option value="a">A</option><option value="b">B</option></select></label><Handle type="source" position={Position.Right} title="Saída de imagem selecionada" aria-label="Saída de imagem selecionada" className="image-port" style={{top:90}}/></div>
+      {(['a','b'] as const).map((port,i)=><div className="model-input-row" key={port}><Handle id={port} type="target" position={Position.Left} title={`Entrada Imagem ${port.toUpperCase()}`} aria-label={`Entrada Imagem ${port.toUpperCase()}`} className={`image-port ${edges.some(e=>e.target===id&&e.targetHandle===port)?'port-connected':''}`} style={{top:22+i*34}}/><span>Imagem {port.toUpperCase()}</span><small>{(port==='a'?a:b)?'Pronta':'Conecte uma imagem'}</small></div>)}
+      <div className="model-input-row model-output-row"><small>Saída</small><label className="nodrag">Imagem <NodeSelect aria-label="Imagem de saída" disabled={running} value={data.compareOutput||'a'} onChange={e=>update(id,{compareOutput:e.target.value})}><option value="a">A</option><option value="b">B</option></NodeSelect></label><Handle type="source" position={Position.Right} title="Saída de imagem selecionada" aria-label="Saída de imagem selecionada" className={`image-port ${edges.some(e=>e.source===id)?'port-connected':''}`} style={{top:90}}/></div>
     </div>
     <div className="compare-modes nodrag" role="group" aria-label="Modo de comparação">{[['wipe','Divisória'],['side','Lado a lado'],['overlay','Sobreposição']].map(([value,label])=><button key={value} disabled={running} aria-pressed={mode===value} onClick={()=>update(id,{compareMode:value})}>{label}</button>)}</div>
     <div className={`compare-stage compare-${mode} nodrag nowheel`}>

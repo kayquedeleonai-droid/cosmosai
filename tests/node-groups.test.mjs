@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {cleanGroups,assignGroup,groupBounds,moveGroup} from '../src/node-groups.mjs';
+const nodes=[{id:'a',position:{x:10,y:20},measured:{width:100,height:80}},{id:'b',position:{x:200,y:40},measured:{width:200,height:120}},{id:'c',position:{x:500,y:0}}];
+const g={id:'g',name:'Cena',color:'#06bdd5',nodeIds:['a','b']};
+test('groups survive JSON roundtrip and legacy projects have none',()=>{assert.deepEqual(cleanGroups(JSON.parse(JSON.stringify([g])),nodes),[g]);assert.deepEqual(cleanGroups(undefined,nodes),[]);});
+test('deleted members and empty groups are pruned without touching nodes',()=>{assert.deepEqual(cleanGroups([g],nodes.slice(1))[0].nodeIds,['b']);assert.deepEqual(cleanGroups([g],[]),[]);assert.equal(nodes.length,3);});
+test('regrouping assigns each node once and preserves other memberships',()=>{const next=assignGroup([g],{...g,id:'g2',nodeIds:['b','c']});assert.deepEqual(next.map(g=>g.nodeIds),[['a'],['b','c']]);});
+test('group geometry encloses measured nodes; movement preserves relative offsets and outsiders',()=>{assert.deepEqual(groupBounds(g,nodes),{x:-14,y:-44,width:438,height:228});const moved=moveGroup(nodes,{a:nodes[0].position,b:nodes[1].position},{x:100,y:-30});assert.deepEqual(moved[0].position,{x:110,y:-10});assert.deepEqual(moved[1].position,{x:300,y:10});assert.equal(moved[2],nodes[2]);assert.deepEqual(nodes[0].position,{x:10,y:20});});
+test('malformed groups reject invalid names, colors and duplicate ids',()=>{for(const patch of [{name:''},{color:'url(bad)'},{nodeIds:'a'}])assert.throws(()=>cleanGroups([{...g,...patch}],nodes));assert.throws(()=>cleanGroups([g,g],nodes));});
