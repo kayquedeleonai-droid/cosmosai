@@ -111,3 +111,8 @@
 .video-preview-player:fullscreen{background:#08090b}.video-preview-player:fullscreen .video-playback{opacity:1;pointer-events:auto}
 
 .video-preview-player video{cursor:pointer}
+
+.pwa-controls{position:fixed;bottom:14px;right:18px;z-index:30;max-width:320px;font-size:11px}
+.pwa-controls>button{display:flex;gap:7px;padding:9px 13px;border:1px solid #244752;border-radius:9px;background:#12262df2;color:#a5e4ef;box-shadow:0 4px 20px #0003}
+.pwa-controls>button:hover{background:#193841}.pwa-controls>button:disabled{opacity:.6}
+.pwa-help{position:absolute;bottom:44px;right:0;width:290px;padding:18px;border:1px solid #344149;background:#181d23;border-radius:12px;box-shadow:0 8px 32px #0007;color:#bcc8d1;line-height:1.6}.pwa-help>button{float:right;color:#acb8c1}.pwa-help strong{color:#e2f4f7}.pwa-help p{margin:12px 0 0}.pwa-controls>p{padding:10px;background:#35252b;border-radius:8px;line-height:1.5;color:#f3c3d0}

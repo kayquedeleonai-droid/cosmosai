@@ -164,6 +164,11 @@ function Canvas({storageScope,initial,folders,onBack,onSave,onCloudSave,message,
   },[signedIn]);
 
   const update=useCallback((id:string,patch:Partial<NodeData>)=>setNodes(ns=>ns.map(n=>n.id===id?{...n,data:{...n.data,...patch}}:n)),[setNodes]);
+  useEffect(()=>{
+    const prepareUpdate=(event:Event)=>{if(runLock.current||!onSave(latest.current))event.preventDefault();};
+    window.addEventListener('cosmos:before-update',prepareUpdate);
+    return()=>window.removeEventListener('cosmos:before-update',prepareUpdate);
+  },[onSave]);
   useEffect(()=>{setSaved(false);const timer=setTimeout(()=>setSaved(onSave(snapshot)),500);return()=>clearTimeout(timer);},[snapshot,onSave]);
   useEffect(()=>{
     const flush=()=>{onSave(latest.current);};
