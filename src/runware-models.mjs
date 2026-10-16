@@ -63,18 +63,33 @@ export function switchModel(data,label){
   return {...(model.kind==='video'?{duration:durationOptions(model).includes(data.duration)?data.duration:durationOptions(model)[0]}:{}),model:model.label,ratio,resolution:resolutions.includes(data.resolution)?data.resolution:fallback,quality:qualityOptions(model).includes(data.quality)?data.quality:undefined,status:undefined};
 }
 // Runware input schemas checked 2026-10-16; video slots are first/last frames.
-export function referenceLimit(model){
+export function videoReferenceLimit(model){
+ if(model?.id==='bytedance:seedance@2.5')return 30;
+ if(model?.id==='bytedance:seedance@2.0'||['minimax:h3@0','minimax:h3@fast','minimax:h3@max'].includes(model?.id))return 9;
+ return 0;
+}
+export function referenceLimit(model,mode){
+ if(mode==='references')return videoReferenceLimit(model);
+
  if(!model)return 1;
  if(model.kind==='video')return model.id==='klingai:kling-video@3.0-turbo'?1:2;
  if(model.id.startsWith('openai:'))return 16;
  return model.id==='bytedance:seedream@5.0-pro'?10:14;
 }
+export function videoSlotLabel(data,index){return data.videoInputMode==='references'?`Reference ${index+1}`:index===0?'First frame':'Last frame';}
+export function switchVideoInputMode(data,mode,connections=[]){
+ if(data.kind!=='video'||!['frames','references'].includes(mode))throw new Error('Modo de entrada inválido.');
+ if(connections.some(e=>referenceIndex(e.targetHandle)>=0))throw new Error('Desconecte as imagens antes de trocar Frames / References.');
+ const m=findModel(data.model||'Seedance 2.5');
+ if(mode==='references'&&!videoReferenceLimit(m))throw new Error('Este modelo aceita apenas First/Last frame.');
+ return {videoInputMode:mode,referenceSlots:mode==='frames'?'2':'1',...(mode==='references'&&m.id.startsWith('bytedance:seedance')&&!['480p','720p'].includes(data.resolution)?{resolution:'720p'}:{})};
+}
 export const referenceHandle=i=>i===0?'reference':`reference-${i+1}`;
-export function referenceIndex(handle){if(handle==='reference')return 0;const m=/^reference-([2-9]|1[0-6])$/.exec(handle||'');return m?Number(m[1])-1:-1;}
-export function referenceSlots(data){return Math.min(referenceLimit(findModel(data.model||(data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'))),Math.max(1,Number(data.referenceSlots)||1));}
+export function referenceIndex(handle){if(handle==='reference')return 0;const m=/^reference-([2-9]|[12][0-9]|30)$/.exec(handle||'');return m?Number(m[1])-1:-1;}
+export function referenceSlots(data){return Math.min(referenceLimit(findModel(data.model||(data.kind==='video'?'Seedance 2.5':'Nano Banana Pro')),data.videoInputMode),Math.max(data.kind==='video'&&data.videoInputMode!=='references'?2:1,Number(data.referenceSlots)||1));}
 export function collectReferences(node,edges,values){
  const slots=Array.from({length:referenceSlots(node.data)},(_,i)=>{const edge=edges.find(e=>e.target===node.id&&e.targetHandle===referenceHandle(i));if(!edge)return undefined;const value=values.get(edge.source);if(!value?.url||value.mediaType!=='image')throw new Error('Uma referência não retornou imagem.');return value.url;});
- if(node.data.kind==='video'&&slots[1]&&!slots[0])throw new Error('Conecte o frame inicial antes do frame final.');
+ if(node.data.kind==='video'&&node.data.videoInputMode!=='references'&&slots[1]&&!slots[0])throw new Error('Conecte o frame inicial antes do frame final.');
  return slots.filter(Boolean);
 }
 export function safeMedia(value) {
@@ -92,13 +107,15 @@ export function buildTask(input,taskUUID) {
   if(!size)throw new Error('Resolução não suportada para este modelo e proporção.');
   if(input.references!=null&&input.reference!=null)throw new Error('Envie reference ou references, não ambos.');
   const references=input.references??(input.reference!=null?[input.reference]:[]);
-  const referenceMode=input.referenceMode===true;
+  const referenceMode=input.referenceMode===true||input.videoInputMode==='references';
   const seedance=['bytedance:seedance@2.0','bytedance:seedance@2.5'].includes(model.id);
   const referenceVideos=input.referenceVideos??[];
   if(!Array.isArray(referenceVideos)||referenceVideos.some(r=>!safeMedia(r))||referenceVideos.length>(model.id==='bytedance:seedance@2.5'?10:3)||referenceVideos.length&&(!seedance||!referenceMode))throw new Error('Vídeos de referência inválidos ou não suportados pelo modelo.');
-  if(referenceMode&&!seedance)throw new Error('Referências multimodais exigem Seedance 2.0 ou 2.5.');
-  if(referenceMode&&!['480p','720p'].includes(resolution))throw new Error('Use 480p ou 720p para gerar Seedance com menções de referência.');
-  if(!Array.isArray(references)||references.length>(referenceMode?(model.id==='bytedance:seedance@2.5'?30:9):referenceLimit(model))||references.some(r=>!validReference(r)))throw new Error('Imagens de referência inválidas ou acima do limite do modelo.');
+  if(input.videoInputMode!=null&&!['frames','references'].includes(input.videoInputMode))throw new Error('Modo de entrada inválido.');
+  if(referenceMode&&input.videoInputMode==='frames')throw new Error('First/Last frame não podem ser combinados com References.');
+  if(referenceMode&&!videoReferenceLimit(model))throw new Error('Este modelo não aceita o modo References.');
+  if(referenceMode&&seedance&&!['480p','720p'].includes(resolution))throw new Error('Use 480p ou 720p para gerar Seedance com menções de referência.');
+  if(!Array.isArray(references)||references.length>(referenceMode?videoReferenceLimit(model):referenceLimit(model))||references.some(r=>!validReference(r)))throw new Error('Imagens de referência inválidas ou acima do limite do modelo.');
   if(referenceMode&&!references.length&&!referenceVideos.length)throw new Error('Adicione uma referência para este modo.');
   if(references.reduce((sum,r)=>sum+r.length,0)>32000000)throw new Error('Referências excedem o limite total de 32 MB.');
   const video=model.kind==='video';
@@ -109,7 +126,7 @@ export function buildTask(input,taskUUID) {
     if(!durationOptions(model).includes(String(duration)))throw new Error('Duração não suportada por este modelo.');
     if(model.id==='klingai:kling-video@3.0-turbo'&&references.length&&input.prompt.length>2500)throw new Error('Kling com imagem aceita prompts de até 2500 caracteres.');
     task.duration=duration;
-    if(referenceMode){task.inputs={...(references.length?{referenceImages:references}:{}),...(referenceVideos.length?{referenceVideos}:{})};task.resolution=resolution;}
+    if(referenceMode){task.inputs={...(references.length?{referenceImages:references}:{}),...(referenceVideos.length?{referenceVideos}:{})};if(seedance||model.id==='minimax:h3@0')task.resolution=resolution;else{task.width=size[0];task.height=size[1];}}
     else if(references.length){task.inputs={frameImages:references};if(model.id!=='minimax:h3@fast')task.resolution=model.id==='bytedance:seedance@2.0'&&resolution==='4K'?'4k':resolution;}
     else {task.width=size[0];task.height=size[1];}
   }else {task.width=size[0];task.height=size[1];if(references.length)task.inputs={referenceImages:references};}

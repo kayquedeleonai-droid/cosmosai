@@ -36,6 +36,7 @@ export function estimateCost(input){
  // GPT is token-priced; reserve generously instead of treating the typical example as a quote.
 
  const referenceCount=Array.isArray(input.references)?input.references.length:(input.reference?1:0);
+ if(m.id==='minimax:h3@0')usd+=Math.max(0,referenceCount-5)*.04;
  if(m.id==='bytedance:seedream@5.0-pro')usd+=Math.max(0,referenceCount-1)*.00321;
  const reserve=m.id.startsWith('openai:')?Math.max(1,usd*20):usd*1.3+.01+referenceCount*.01;
 

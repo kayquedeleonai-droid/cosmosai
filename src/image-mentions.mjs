@@ -1,6 +1,6 @@
 import {isLocalMedia} from './local-media.mjs';
 import {nodeImage} from './workflow-cover.mjs';
-import {safeMedia} from './runware-models.mjs';
+import {safeMedia,findModel,videoReferenceLimit} from './runware-models.mjs';
 
 export const imageName=node=>node.data.imageName?.trim()||node.data.generatedModel||node.data.model||({generate:'Nano Banana Pro',video:'Seedance 2.5',image:'Load Image',loadvideo:'Load Video',upscale:'Magnific',upscalevideo:'Topaz',output:'Output'})[node.data.kind]||'Image';
 export function nameMediaNodes(nodes){
@@ -20,9 +20,10 @@ export function mentionQuery(text,caret){
  const match=/(?:^|\s)@([^\[\]@\s]*)$/.exec(text.slice(0,caret));
  return match?{start:caret-match[1].length-1,end:caret,query:match[1]}:null;
 }
-export function resolveImageMentions(prompt,nodes,targetId,connected=[],model=''){
+export function resolveImageMentions(prompt,nodes,targetId,connected=[],model='',videoInputMode){
  const references=[...connected],referenceVideos=[],choices=imageChoices(nodes),seedance=['Seedance 2.0','Seedance 2.5'].includes(model);
- let mentioned=false;
+ let mentioned=false;const video=findModel(model)?.kind==='video';
+ if(videoInputMode==='references'&&!videoReferenceLimit(findModel(model)))throw new Error('Este modelo não aceita References.');
  const text=prompt.replace(tokens(),(_token,prefix,bracket,simple)=>{
   const name=bracket||simple;mentioned=true;
   const matches=choices.filter(item=>item.name===name);
@@ -33,7 +34,9 @@ export function resolveImageMentions(prompt,nodes,targetId,connected=[],model=''
   let index=pool.indexOf(item.src);if(index<0){index=pool.length;pool.push(item.src);}
   return prefix+(seedance?`@${item.video?'Video':'Image'}${index+1}`:`reference image ${index+1}`);
  });
- return {prompt:text,references,...(seedance&&mentioned?{referenceMode:true,referenceVideos}:{})};
+ if(video&&mentioned&&videoInputMode!=='references'&&(connected.length||videoInputMode==='frames'))throw new Error('Menções @ são References. Desconecte First/Last frame e selecione References para combinar imagens.');
+ const referenceMode=video&&(videoInputMode==='references'||mentioned&&!!videoReferenceLimit(findModel(model)));
+ return {prompt:text,references,...(referenceMode?{referenceMode:true,referenceVideos}:{}),...(video?{videoInputMode:referenceMode?'references':'frames'}:{})};
 }
 
 export function mentionParts(text,names){

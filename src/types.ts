@@ -7,6 +7,7 @@ export type NodeData = {
   prompt?: string;
   imageName?: string;
   referenceSlots?: string;
+  videoInputMode?: string;
   image?: string;
   result?: string;
   status?: string;

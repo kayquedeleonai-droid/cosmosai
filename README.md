@@ -125,3 +125,10 @@ Runware H3, H3 Fast, H3 Max and H3 Max Turbo are available in Generate Video wit
 Voice uses browser Web Speech recognition (pt-BR dictation, review before sending, 45-second limit) and speech synthesis with optional automatic spoken answers. Dictation availability depends on browser and permission; the browser provider may process audio remotely. Text chat remains available. Microphone stops on panel close, tab hide and unmount. No OpenAI audio service is billed by these voice controls; chat requests still use OpenAI API credits.
 
 References: https://developers.openai.com/api/docs/guides/structured-outputs and https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition .
+
+
+### Video input roles
+
+Video nodes label First frame and Last frame next to each port and show a Frames / References mode selector. The References option is available for Seedance 2.0/2.5 and MiniMax H3, H3 Fast and H3 Max; H3 Max Turbo only exposes frames. Mode changes require disconnecting image inputs, so existing wires are never silently reinterpreted. References are numbered, and connected-port tooltips name the source node. Both frame ports are visible by default where supported; first-frame presence is validated before last-frame generation. Existing reference handles retain their persisted IDs.
+
+Reference mode uses Runware referenceImages (Seedance 2.5 up to 30, other supported models up to 9). H3/Fast/Max image references are supported; H3 video/audio references are not exposed. Seedance reference-mode output remains limited to the app's existing 480p/720p support. Frames and general references cannot be combined. Explicit Frames mode rejects @ references instead of silently converting frames. H3 Fast/Max reference requests use dimensions, while H3 uses resolution; Max Turbo has no referenceImages input. Sources checked 2026-10-16: Runware model references for minimax-h3, minimax-h3-fast, minimax-h3-max, minimax-h3-max-turbo and bytedance-seedance-2-5.

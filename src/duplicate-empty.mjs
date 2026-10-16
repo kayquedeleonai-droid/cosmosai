@@ -1,5 +1,5 @@
 import {nameMediaNodes} from './image-mentions.mjs';
-const settings=['kind','model','ratio','resolution','quality','duration','referenceSlots','psSlots','flavor','sharpen','smartGrain','ultraDetail','topazResolution','targetFps','interpolation','noise','upscaleFactor','upscaleStyle','creativity','hdr','resemblance','fractality','compareMode','compareSplit','compareOutput'];
+const settings=['kind','model','ratio','resolution','quality','duration','videoInputMode','referenceSlots','psSlots','flavor','sharpen','smartGrain','ultraDetail','topazResolution','targetFps','interpolation','noise','upscaleFactor','upscaleStyle','creativity','hdr','resemblance','fractality','compareMode','compareSplit','compareOutput'];
 export function duplicateEmpty(nodes,id,newId){
  const source=nodes.find(n=>n.id===id);
  if(!source)throw new Error('Node não encontrado.');
