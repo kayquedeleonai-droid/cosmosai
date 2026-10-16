@@ -14,7 +14,9 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
  globalThis.fetch=async(url,options)=>{
    if(String(url).startsWith('https://www.googleapis.com/'))return Response.json({keys:[jwk]});
    assert.equal(url,'https://api.runware.ai/v1');assert.equal(options.headers.Authorization,'Bearer secret-test');
-   const [task]=JSON.parse(options.body);if(task.taskType!=='getResponse')charges++;
+   const [task]=JSON.parse(options.body);
+   if(task.taskType==='accountManagement')return Response.json({data:[{taskType:task.taskType,taskUUID:task.taskUUID,balance:{amount:12.34,currency:'USD',freeBalance:1},team:[{email:'private@example.com'}],apiKeys:[{apiKey:'must-never-leak'}]}]});
+   if(task.taskType!=='getResponse')charges++;
    if(pendingOnce&&task.taskType!=='getResponse'){pendingOnce=false;return Response.json({data:[{taskUUID:task.taskUUID,status:'processing'}]});}
    return Response.json({data:[{taskUUID:task.taskUUID,status:'success',imageURL:'https://im.runware.ai/result.png'}]});
  };
@@ -32,6 +34,10 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
    assert.equal((await call('generate',{...input,requestId:crypto.randomUUID()},tokenB)).status,403);
    assert.equal(charges,1);
    assert.equal((await call('admin/users',{},tokenB)).status,403);
+   assert.equal((await call('admin/balance',{},tokenB)).status,403);
+   const balance=await (await call('admin/balance',{})).json();
+   assert.equal(balance.amount,12.34);assert.equal(balance.currency,'USD');assert.equal(balance.freeBalance,1);
+   assert.deepEqual(Object.keys(balance).sort(),['amount','currency','freeBalance','updatedAt']);
    assert.equal((await call('admin/account',{uid:'alice',status:'blocked',daily_usd:2})).status,400);
    assert.equal((await call('admin/account',{uid:'bob',status:'active',daily_usd:0})).status,200);
    assert.equal((await call('admin/settings',{daily_usd:10,paused:true})).status,200);
@@ -59,3 +65,4 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
 
  }finally{globalThis.fetch=originalFetch;database.close();}
 });
+

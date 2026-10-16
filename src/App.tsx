@@ -1,3 +1,4 @@
+import RunwareBalance from './RunwareBalance';
 import DownloadMediaButton from './DownloadMediaButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -79,7 +80,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
   const media=projects.flatMap(p=>p.nodes.filter(n=>n.data.result||n.data.image).map(n=>({id:`${p.id}-${n.id}`,src:n.data.result||n.data.image!,project:p,mediaType:n.data.mediaType||'image'})));
 
   return <div className="app-shell">
-    {current&&!cloudReady?<div className="app-loading"><Wordmark/><span>Sincronizando seu workflow…</span></div>:current ? <Editor key={current.id} storageScope={scope} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
+    {current&&!cloudReady?<div className="app-loading"><Wordmark/><span>Sincronizando seu workflow…</span></div>:current ? <Editor isAdmin={!!account?.isAdmin} key={current.id} storageScope={scope} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
       <aside className="sidebar">
         <button className="sidebar-brand" onClick={()=>{setPage('workflows');setFilter('Todos');}} aria-label="Cosmos — início"><Wordmark/></button>
         <nav aria-label="Navegação principal">
@@ -94,6 +95,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
         <div className="sidebar-bottom"><div className="sidebar-tip"><span className="tiny-dot"/> {user?'Workspace pessoal':'Modo demonstração'}<small>{user?'Seu universo criativo.':'Explore sem consumir APIs.'}</small></div><div className="profile"><span className="planet-avatar" aria-hidden="true"/><div><strong>{user?.displayName || user?.email?.split('@')[0] || 'Explorador'}</strong><small>{account?.isAdmin?'Administrador':user?'Conta pessoal':'Visitante'}</small></div><button aria-label={user?'Sair da conta':'Voltar ao login'} title={user?'Sair da conta':'Voltar ao login'} onClick={()=>void onExit().catch(()=>message('Não foi possível sair. Tente novamente.'))}><LogOut size={16}/></button></div></div>
       </aside>
       <main className="dashboard">
+        {account?.isAdmin&&<div className="dashboard-balance"><RunwareBalance/></div>}
         {account&&!account.isAdmin&&account.account.status!=='active'&&<p className="notice" role="status">{account.account.status==='blocked'?'Suas gerações estão bloqueadas.':'Sua conta aguarda aprovação para gerar.'} Você pode organizar seus workflows.</p>}
         {page==='admin'&&(account?.isAdmin?<AdminPanel/>:<p>Acesso exclusivo do administrador.</p>)}
         {page==='history'&&user&&<GenerationHistory/>}
@@ -120,3 +122,4 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
     {toast && <div className="toast" role="status">{toast}<button aria-label="Fechar mensagem" onClick={()=>setToast('')}><X size={15}/></button></div>}
   </div>;
 }
+

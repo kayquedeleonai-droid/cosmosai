@@ -1,6 +1,7 @@
 import {buildTask,readResult} from '../src/runware-models.mjs';
 import {estimateCost} from '../src/pricing.mjs';
 import {verifyIdentity} from './auth.mjs';
+import {readBalance} from './balance.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const spent="CASE WHEN actual IS NOT NULL THEN actual ELSE reserved END";
 const day=()=>new Date().toISOString().slice(0,10);
@@ -32,6 +33,9 @@ export default {
    if(path==='/me')return reply({account,isAdmin,verified:identity.verified,storage:false});
    if(path.startsWith('/admin/')){
     if(!isAdmin)return reply({error:'Acesso exclusivo do administrador.'},403);
+    if(path==='/admin/balance'){
+     try{return reply(await readBalance(env.RUNWARE_API_KEY));}catch{return reply({error:'Saldo Runware indisponível. Tente atualizar novamente.'},502);}
+    }
     if(path==='/admin/users'){
      const offset=Number.isInteger(input.offset)&&input.offset>=0?Math.min(input.offset,100000):0;
      const users=await env.DB.prepare(`SELECT a.*, (SELECT COALESCE(SUM(${spent}),0) FROM jobs j WHERE j.uid=a.uid AND j.day=?) AS today_usd,(SELECT COUNT(*) FROM jobs j WHERE j.uid=a.uid) AS generations FROM accounts a ORDER BY created DESC,uid LIMIT 50 OFFSET ?`).bind(day(),offset).all();
@@ -111,3 +115,4 @@ async function recoverJobs(env){
  const jobs=await env.DB.prepare("SELECT * FROM jobs WHERE state='processing' AND created>? ORDER BY polled ASC LIMIT 10").bind(Date.now()-48*3600000).all();
  for(const job of jobs.results){try{await pollJob(env,job);}catch{/* Retry polling only, never creation. */}}
 }
+
