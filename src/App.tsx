@@ -1,3 +1,4 @@
+import CosmosAssistant from './CosmosAssistant';
 import {workflowCover} from './workflow-cover.mjs';
 import RunwareBalance from './RunwareBalance';
 import DownloadMediaButton from './DownloadMediaButton';
@@ -84,6 +85,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
   const media=projects.flatMap(p=>p.nodes.filter(n=>n.data.result||n.data.image).map(n=>({id:`${p.id}-${n.id}`,src:n.data.result||n.data.image!,project:p,mediaType:n.data.mediaType||'image'})));
 
   return <div className="app-shell">
+    <CosmosAssistant signedIn={!!user}/>
     {current&&!cloudReady?<AppLoading/>:current ? <Editor isAdmin={!!account?.isAdmin} key={current.id} storageScope={scope} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
       <aside className="sidebar">
         <button className="sidebar-brand" onClick={()=>{setPage('workflows');setFilter('Todos');}} aria-label="Cosmos — início"><Wordmark/></button>

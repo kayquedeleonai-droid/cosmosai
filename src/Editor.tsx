@@ -1,3 +1,4 @@
+import PhotoshopNode from './PhotoshopNode';
 import MagnificControls from './MagnificControls';
 import {magnificModel,magnificOptions,isUpscale,upscaleModel,topazModels} from './magnific.mjs';
 import LoadMedia from './LoadMedia';
@@ -83,6 +84,7 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
   useEffect(()=>{updateInternals(id);},[id,slots,aspect,updateInternals]);
   function changeModel(value:string){const next=findModel(value),cap=referenceLimit(next);if(connections.some(e=>e.target===id&&referenceIndex(e.targetHandle)>=cap)){message('Desconecte as referências extras antes de trocar para este modelo.');return;}update(id,{...switchModel(data,value),referenceSlots:String(Math.min(slots,cap))});}
   function expand(){if(!src)return;const player=nodeElement.current?.querySelector('video');const time=player?.currentTime||0;player?.pause();setViewer({src,video:isVideo,time});}
+  if(data.kind==='photoshop')return <PhotoshopNode id={id} data={data} selected={selected} update={update} message={message}/>;
   if(data.kind==='compare')return <CompareNode id={id} data={data} selected={selected} update={update} running={running}/>;
   return <article ref={nodeElement} onDoubleClick={event=>{if((event.target as HTMLElement).closest('button,select,input,textarea,summary,.node-controls,.react-flow__handle'))return;if(src){event.preventDefault();event.stopPropagation();expand();}}} className={`studio-node node-${data.kind} ${selected?'selected':''} ${busy?'executing':''}`} style={{'--node-accent':meta.color} as React.CSSProperties}>
     <div className="node-title"><span/>{['image','video'].includes(meta.output||'')?<ImageName id={id} data={data} nodes={allNodes} disabled={running} onRename={name=>update(id,{imageName:name})} onError={message}/>:label}{['image','video'].includes(meta.output||'')&&<small>{label}</small>}{isUpscale(data.kind)?<small>MAGNIFIC</small>:null}</div>
@@ -109,7 +111,7 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
 type MenuChoice={label:string;kind:Kind;model?:string};
 function NodeMenu({x,y,onAdd,onClose}: {x:number;y:number;onAdd:(choice:MenuChoice)=>void;onClose:()=>void}){
   const [search,setSearch]=useState('');
-  const choices:MenuChoice[]=[{label:'Carregar imagem',kind:'image'},{label:'Carregar vídeo',kind:'loadvideo'},{label:'Prompt',kind:'prompt'},{label:'Gerar imagem',kind:'generate',model:'Nano Banana Pro'},{label:'Gerar vídeo',kind:'video',model:'Seedance 2.5'},{label:'Upscale Magnific',kind:'upscale',model:magnificModel},{label:'Upscale Topaz · vídeo',kind:'upscalevideo',model:topazModels[0]}];
+  const choices:MenuChoice[]=[{label:'Photoshop · camadas',kind:'photoshop'},{label:'Carregar imagem',kind:'image'},{label:'Carregar vídeo',kind:'loadvideo'},{label:'Prompt',kind:'prompt'},{label:'Gerar imagem',kind:'generate',model:'Nano Banana Pro'},{label:'Gerar vídeo',kind:'video',model:'Seedance 2.5'},{label:'Upscale Magnific',kind:'upscale',model:magnificModel},{label:'Upscale Topaz · vídeo',kind:'upscalevideo',model:topazModels[0]}];
   return <div className="node-menu" role="dialog" aria-label="Adicionar node" style={{left:Math.max(8,Math.min(x,window.innerWidth-310)),top:Math.max(70,Math.min(y,window.innerHeight-350))}} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')onClose();}}>
     <div className="node-search"><Search size={15}/><input autoFocus aria-label="Buscar nodes" placeholder="Buscar nodes…" value={search} onChange={e=>setSearch(e.target.value)}/><button aria-label="Fechar menu de nodes" onClick={onClose}><X size={13}/></button></div>
     <div className="node-menu-items">{choices.filter(c=>c.label.toLowerCase().includes(search.trim().toLowerCase())).map(c=><button key={c.kind} className={c.kind==='prompt'?'featured':undefined} onClick={()=>onAdd(c)}>{c.label}{c.model&&<small>{isUpscale(c.kind)?'MAGNIFIC':'RUNWARE'}</small>}</button>)}</div>
@@ -209,7 +211,7 @@ function Canvas({isAdmin,storageScope,initial,folders,onBack,onSave,onCloudSave,
     if(runLock.current)return;
     let currentId='';
     try{
-      let ordered=orderGraph(nodes,edges) as FlowNode[];
+      let ordered=(orderGraph(nodes,edges) as FlowNode[]).filter(n=>n.data.kind!=='photoshop');
       if(targetId){const needed=new Set<string>();const visit=(id:string)=>{if(needed.has(id))return;needed.add(id);const n=nodes.find(n=>n.id===id);if(id!==targetId&&n?.data.result&&!n.data.pendingTask&&hasQuote(n.data.kind))return;for(const e of edges.filter(e=>e.target===id))visit(e.source);};visit(targetId);ordered=ordered.filter(n=>needed.has(n.id));}
       if(!ordered.length)throw new Error('Adicione nodes ao workflow.');
       const paid=ordered.some(n=>hasQuote(n.data.kind));

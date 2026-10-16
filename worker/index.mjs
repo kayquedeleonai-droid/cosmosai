@@ -1,3 +1,4 @@
+import {assistantInput,converse} from './assistant.mjs';
 import {isMagnificModel,magnificTask} from '../src/magnific.mjs';
 import {createMagnific,pollMagnific} from './magnific.mjs';
 import {buildTask,readResult} from '../src/runware-models.mjs';
@@ -34,6 +35,20 @@ export default {
     account=await env.DB.prepare('SELECT * FROM accounts WHERE uid=?').bind(uid).first();
    }
    if(path==='/me')return reply({account,isAdmin,verified:identity.verified,storage:false});
+   if(path==='/assistant/status')return reply({ready:isAdmin&&!!env.OPENAI_API_KEY,message:!isAdmin?'O assistente está disponível para a conta proprietária.':!env.OPENAI_API_KEY?'Falta configurar a chave OpenAI no servidor para ativar as conversas.':''});
+   if(path==='/assistant'){
+    if(!isAdmin)return reply({error:'O assistente está disponível para a conta proprietária.'},403);
+    if(!env.OPENAI_API_KEY)return reply({error:'Configure OPENAI_API_KEY no servidor para ativar o assistente.'},503);
+    if(!uuid.test(input.requestId))return reply({error:'Identificador inválido.'},400);
+    let messages;try{messages=assistantInput(input);}catch(e){return reply({error:e.message},400);}
+    await env.DB.prepare('DELETE FROM assistant_requests WHERE created<?').bind(Date.now()-86400000).run();
+    const existing=await env.DB.prepare('SELECT uid,result FROM assistant_requests WHERE id=?').bind(input.requestId).first();
+    if(existing)return existing.uid!==uid?reply({error:'Consulta inválida.'},403):existing.result?reply(JSON.parse(existing.result)):reply({error:'Esta consulta já foi enviada. Não será cobrada novamente.'},409);
+    const saved=await env.DB.prepare('INSERT OR IGNORE INTO assistant_requests(id,uid,created) VALUES(?,?,?)').bind(input.requestId,uid,Date.now()).run();
+    if(!saved.meta.changes)return reply({error:'Consulta já enviada.'},409);
+    try{const answer=await converse(messages,env.OPENAI_API_KEY);await env.DB.prepare('UPDATE assistant_requests SET result=? WHERE id=?').bind(JSON.stringify(answer),input.requestId).run();return reply(answer);}
+    catch(e){return reply({error:e.name==='TimeoutError'?'A OpenAI demorou para responder. A consulta pode ter sido cobrada; não repetimos automaticamente.':e.message},502);}
+   }
    if(path==='/media-upload'){
     if(!identity.verified||account.status!=='active')return reply({error:'Sua conta precisa estar verificada e aprovada para enviar arquivos.'},403);
     if(!env.RUNWARE_API_KEY)return reply({error:'Runware indisponível.'},503);

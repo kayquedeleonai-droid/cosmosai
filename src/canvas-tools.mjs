@@ -1,3 +1,4 @@
+import {photoshopSlots,layerHandle} from './photoshop.mjs';
 import {catalog,validConnection} from './graph.mjs';
 import {referenceSlots,referenceHandle} from './runware-models.mjs';
 // Keep layout interactive without removing or replacing nodes used by a running task.
@@ -14,7 +15,7 @@ export function nearestConnection(sourceId,nodes,edges){
   const choices=[];
   for(const target of nodes){
     const kind=target.data.kind;
-    const handles=kind==='compare'?['a','b']:['generate','video'].includes(kind)?[null,...Array.from({length:referenceSlots(target.data)},(_,i)=>referenceHandle(i))]:[null];
+    const handles=kind==='photoshop'?Array.from({length:photoshopSlots(target.data)},(_,i)=>layerHandle(i)):kind==='compare'?['a','b']:['generate','video'].includes(kind)?[null,...Array.from({length:referenceSlots(target.data)},(_,i)=>referenceHandle(i))]:[null];
     handles.forEach((handle,index)=>{const connection={source:sourceId,target:target.id,...(handle?{targetHandle:handle}:{})};if(validConnection(connection,nodes,edges))choices.push({connection,distance:Math.hypot(target.position.x-sx,target.position.y+16+index*28-sy)});});
   }
   return choices.sort((a,b)=>a.distance-b.distance||a.connection.target.localeCompare(b.connection.target))[0]?.connection||null;

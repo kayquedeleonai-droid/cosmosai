@@ -1,5 +1,6 @@
 import {safeMedia,referenceIndex,referenceSlots} from './runware-models.mjs';
 export const catalog = {
+  photoshop: {label:'Photoshop',category:'SAÍDA',color:'#65baff',input:'image',output:null,description:'Exporte imagens em camadas para o Photoshop.'},
   upscalevideo: {label:'Upscale Topaz',category:'MODELO',color:'#a98bfa',input:'video',output:'video',description:'Amplie vídeos com Topaz pela Magnific.'},
   loadvideo: { label: 'Carregar vídeo', category: 'ENTRADA', color: '#a98bfa', input: null, output: 'video', description: 'Traga um vídeo do seu computador.' },
   compare: { label: 'Comparar', category: 'UTILITÁRIO', color: '#06bdd5', input: 'image', output: 'image', description: 'Compare duas imagens sem consumir créditos.' },
@@ -30,6 +31,11 @@ export function validConnection(connection, nodes, edges) {
   if (!a || !b || a.id === b.id) return false;
   if(b.data.kind==='compare'&&!['a','b'].includes(connection.targetHandle))return false;
   if(['a','b'].includes(connection.targetHandle)&&b.data.kind!=='compare')return false;
+  if(b.data.kind==='photoshop'){
+    const slot=/^layer-([1-9]|1[0-6])$/.exec(connection.targetHandle||'');
+    if(!slot||Number(slot[1])>Number(b.data.psSlots||2)||catalog[a.data.kind]?.output!=='image'||a.data.mediaType==='video'||connection.sourceHandle!=null||edges.some(e=>e.target===b.id&&e.targetHandle===connection.targetHandle))return false;
+    try{orderGraph(nodes,[...edges,connection]);return true;}catch{return false;}
+  }
   const ref=referenceIndex(connection.targetHandle);
   if(ref>=0&&(!['generate','video'].includes(b.data.kind)||ref>=referenceSlots(b.data)))return false;
   const output=catalog[a.data.kind]?.output;
@@ -44,6 +50,7 @@ export function validateProject(value) {
   for (const n of value.nodes) {
     if (typeof n.id !== 'string' || !Object.hasOwn(catalog,n.data?.kind) || !Number.isFinite(n.position?.x) || !Number.isFinite(n.position?.y)) throw new Error('Node inválido.');
     if(n.data.referenceSlots!=null&&(typeof n.data.referenceSlots!=='string'||!/^([1-9]|1[0-6])$/.test(n.data.referenceSlots)||Number(n.data.referenceSlots)>referenceSlots(n.data)))throw new Error('Quantidade de referências inválida.');
+    if(n.data.psSlots!=null&&(typeof n.data.psSlots!=='string'||!/^([1-9]|1[0-6])$/.test(n.data.psSlots)))throw new Error('Quantidade de camadas inválida.');
     if (n.data.prompt != null && typeof n.data.prompt !== 'string') throw new Error('Prompt inválido.');
     if(n.data.imageName!=null&&(typeof n.data.imageName!=='string'||n.data.imageName.length>60||/[\[\]\n@]/.test(n.data.imageName)))throw new Error('Nome de imagem inválido.');
     if (n.data.model != null && (typeof n.data.model !== 'string' || n.data.model.length > 80)) throw new Error('Modelo inválido.');
