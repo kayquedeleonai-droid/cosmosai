@@ -77,7 +77,7 @@
 .node-generate .node-preview img,.node-video .node-preview video{background:transparent}
 .node-generate .node-controls,.node-video .node-controls{gap:5px;padding:0 8px;background:linear-gradient(transparent,rgba(8,10,12,.65))}
 .node-generate .node-settings>div,.node-video .node-settings>div{left:auto;right:0}
-.reference-add{position:absolute;left:-7px;transform:translateY(-50%);width:14px;height:14px;min-width:14px;padding:0;border:1px solid #08788b;border-radius:50%;background:#152a30;color:#08bfd5;z-index:5;display:grid;place-items:center}
+.reference-add{position:absolute;left:-5px;transform:translate(-50%,-50%);width:14px;height:14px;min-width:14px;padding:0;border:1px solid #08788b;border-radius:50%;background:#152a30;color:#08bfd5;z-index:5;display:grid;place-items:center}
 .reference-add:hover{box-shadow:0 0 0 5px #06bdd520;background:#16404b}.reference-add:disabled{opacity:.45}
 .node-settings button{font-size:10px;color:#09bed5;padding:7px 0}.node-settings button:disabled{opacity:.4}
 @media(prefers-reduced-motion:reduce){.node-generate .node-preview,.node-video .node-preview{transition:none}}
