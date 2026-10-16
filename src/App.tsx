@@ -15,12 +15,15 @@ import {accountRequest} from './runware';
 import type { Project } from './types';
 
 type Page = 'workflows'|'gallery'|'albums'|'admin'|'history';
+function AppLoading(){
+  return <div className="app-loading" role="status" aria-label="Carregando Cosmos"><Wordmark/><LoaderCircle className="spin" size={20}/></div>;
+}
 export default function App() {
   const [user,setUser] = useState<User|null>(null);
   const [ready,setReady] = useState(!auth);
   const [demo,setDemo] = useState(false);
   useEffect(()=>{if(auth)return onAuthStateChanged(auth,u=>{setUser(u);setReady(true);});},[]);
-  if(!ready) return <div className="app-loading"><Wordmark/><LoaderCircle className="spin" size={20}/></div>;
+  if(!ready) return <AppLoading/>;
   if(!user && !demo) return <AuthScreen onDemo={()=>setDemo(true)}/>;
   return <Workspace key={user?.uid || 'guest'} user={user} onExit={async()=>{await logout();setDemo(false);}}/>;
 }
@@ -81,7 +84,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
   const media=projects.flatMap(p=>p.nodes.filter(n=>n.data.result||n.data.image).map(n=>({id:`${p.id}-${n.id}`,src:n.data.result||n.data.image!,project:p,mediaType:n.data.mediaType||'image'})));
 
   return <div className="app-shell">
-    {current&&!cloudReady?<div className="app-loading"><Wordmark/><span>Sincronizando seu workflow…</span></div>:current ? <Editor isAdmin={!!account?.isAdmin} key={current.id} storageScope={scope} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
+    {current&&!cloudReady?<AppLoading/>:current ? <Editor isAdmin={!!account?.isAdmin} key={current.id} storageScope={scope} initial={current} folders={allFolders} onBack={()=>setActive(null)} onSave={upsert} onCloudSave={cloudSave} message={message} signedIn={!!user}/> : <>
       <aside className="sidebar">
         <button className="sidebar-brand" onClick={()=>{setPage('workflows');setFilter('Todos');}} aria-label="Cosmos — início"><Wordmark/></button>
         <nav aria-label="Navegação principal">

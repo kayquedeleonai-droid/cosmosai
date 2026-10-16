@@ -158,3 +158,6 @@
 .runware-balance strong{font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
 .runware-balance:disabled{opacity:1}
 @media(max-width:1050px){.editor-actions .runware-balance{width:132px;min-width:132px}}
+/* Auth and workflow restoration share the same full-width loading layout. */
+.app-loading{width:100%;flex-shrink:0;text-align:center}
+.app-loading .wordmark{transform-origin:center}
