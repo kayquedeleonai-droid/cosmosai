@@ -214,3 +214,7 @@ body:has(.pwa-controls button) .cosmos-assistant{bottom:72px}body:has(.pwa-contr
 .flow-canvas .react-flow__node.draggable.dragging,
 .flow-canvas .studio-node,
 .flow-canvas .studio-node .video-preview-player video{cursor:url('/selection-cursor.svg') 4 4,default}
+
+.orbi-plan{border:1px solid #225663;border-radius:12px;background:#102b344d;padding:12px;margin-top:10px;font-size:12px}
+.orbi-plan ul{padding-left:16px;max-height:210px;overflow:auto;overflow-wrap:anywhere}.orbi-plan li{margin:8px 0}.orbi-plan li span{display:block;color:#a5bdc5;white-space:pre-wrap}.orbi-plan>button{background:#123e49;color:#7de8ee;border:1px solid #24616c;border-radius:8px;padding:8px 12px;margin-bottom:8px}.orbi-plan small{display:block;color:#8da8b0}
+.orbi-voice{margin:10px 0}.orbi-voice>div{display:flex;gap:8px;flex-wrap:wrap}.orbi-voice button{display:flex;align-items:center;gap:5px;border:1px solid #30434a;background:#17252c;color:#a9c1ca;border-radius:8px;padding:7px 9px;font-size:11px}.orbi-voice button[aria-pressed=true]{color:#7ef1e1;background:#17433f;border-color:#418e80}.orbi-voice small{display:block;margin-top:6px;color:#8da8b0;font-size:10px}.orbi-voice button:disabled{opacity:.45}

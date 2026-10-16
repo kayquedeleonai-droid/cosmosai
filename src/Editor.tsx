@@ -1,3 +1,5 @@
+import {registerOrbi} from './orbi-bridge';
+import {applyWorkflowActions,workflowSignature} from './orbi-workflow.mjs';
 import {duplicateEmpty,emptyDuplicateTarget} from './duplicate-empty.mjs';
 import {isLocalMedia} from './local-media.mjs';
 import PhotoshopNode from './PhotoshopNode';
@@ -170,6 +172,15 @@ function Canvas({isAdmin,storageScope,initial,folders,onBack,onSave,onCloudSave,
     const timer=setTimeout(()=>{undoStack.current=[...undoStack.current.slice(-19),previousEdit.current];redoStack.current=[];previousEdit.current=snapshot;refreshHistory(v=>v+1);},400);
     return()=>clearTimeout(timer);
   },[snapshot,running]);
+  useEffect(()=>registerOrbi({read:()=>latest.current,apply:(actions,signature)=>{
+    if(runLock.current)throw new Error('Aguarde a geração terminar para aplicar o plano.');
+    if(workflowSignature(latest.current)!==signature)throw new Error('O workflow mudou. Peça um novo plano ao Órbi.');
+    const before=latest.current,next=applyWorkflowActions(before,actions);
+    undoStack.current=[...undoStack.current.slice(-19),before];redoStack.current=[];historySkip.current=true;
+    latest.current=next;setNodes(next.nodes);setEdges(next.edges);refreshHistory(v=>v+1);
+    message('Plano aplicado. Use Desfazer para reverter.');
+    requestAnimationFrame(()=>void fitView({padding:.2,maxZoom:.85}));
+  }}),[setNodes,setEdges,message,fitView]);
   function historyMove(redo=false){
     if(running)return;const stack=redo?redoStack:undoStack;const p=stack.current.pop();if(!p)return;
     (redo?undoStack:redoStack).current.push(latest.current);historySkip.current=true;

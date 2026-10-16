@@ -40,13 +40,13 @@ export default {
     if(!isAdmin)return reply({error:'O assistente está disponível para a conta proprietária.'},403);
     if(!env.OPENAI_API_KEY)return reply({error:'Configure OPENAI_API_KEY no servidor para ativar o assistente.'},503);
     if(!uuid.test(input.requestId))return reply({error:'Identificador inválido.'},400);
-    let messages;try{messages=assistantInput(input);}catch(e){return reply({error:e.message},400);}
+    let messages;try{messages=assistantInput(input);if(input.workflow&&(JSON.stringify(input.workflow).length>80000||!Array.isArray(input.workflow.nodes)||input.workflow.nodes.length>100||!Array.isArray(input.workflow.edges)||input.workflow.edges.length>200))throw new Error('Contexto do workflow muito grande.');}catch(e){return reply({error:e.message},400);}
     await env.DB.prepare('DELETE FROM assistant_requests WHERE created<?').bind(Date.now()-86400000).run();
     const existing=await env.DB.prepare('SELECT uid,result FROM assistant_requests WHERE id=?').bind(input.requestId).first();
     if(existing)return existing.uid!==uid?reply({error:'Consulta inválida.'},403):existing.result?reply(JSON.parse(existing.result)):reply({error:'Esta consulta já foi enviada. Não será cobrada novamente.'},409);
     const saved=await env.DB.prepare('INSERT OR IGNORE INTO assistant_requests(id,uid,created) VALUES(?,?,?)').bind(input.requestId,uid,Date.now()).run();
     if(!saved.meta.changes)return reply({error:'Consulta já enviada.'},409);
-    try{const answer=await converse(messages,env.OPENAI_API_KEY);await env.DB.prepare('UPDATE assistant_requests SET result=? WHERE id=?').bind(JSON.stringify(answer),input.requestId).run();return reply(answer);}
+    try{const answer=await converse(messages,env.OPENAI_API_KEY,fetch,input.workflow||null);await env.DB.prepare('UPDATE assistant_requests SET result=? WHERE id=?').bind(JSON.stringify(answer),input.requestId).run();return reply(answer);}
     catch(e){return reply({error:e.name==='TimeoutError'?'A OpenAI demorou para responder. A consulta pode ter sido cobrada; não repetimos automaticamente.':e.message},502);}
    }
    if(path==='/media-upload'){

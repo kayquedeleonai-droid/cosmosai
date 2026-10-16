@@ -116,3 +116,12 @@ Dragging images onto the canvas or loading images/videos stores the original fil
 
 ## MiniMax video models
 Runware H3, H3 Fast, H3 Max and H3 Max Turbo are available in Generate Video with text or first/last-frame inputs, 5–15 second clips and six aspect ratios. H3 supports 768p/1440p, Fast 480p, Max and Max Turbo 480p/768p. Fast omits resolution and dimensions for frame inputs per its schema. Model switching resets incompatible controls. Native audio uses provider defaults; advanced multimodal video/audio referencing is not exposed for this family. Pricing estimates follow the rates tables, not discounted example outputs. Verified 2026-10-16: https://runware.ai/docs/models/minimax-h3 (and -fast, -max, -max-turbo). No Seedance 2.5 Fast entry was found; Seedance 2.0 Fast is a different model and was not added.
+
+
+### Órbi: workflow plans and voice
+
+Órbi receives a bounded text snapshot of the active workflow (node names, prompts, settings, positions and connections; no image/video bytes or media URLs). GPT-6 Astra returns a structured proposal. The user reviews it and clicks Apply; supported operations are create, configure, rename, move and connect. Model capabilities, connection types, occupied ports, cycles and project limits are validated atomically. Plans are tied to the source workflow snapshot and rejected after edits/navigation. Applying creates one undo step and never calls media generation. Generation remains on the existing explicit Generate controls.
+
+Voice uses browser Web Speech recognition (pt-BR dictation, review before sending, 45-second limit) and speech synthesis with optional automatic spoken answers. Dictation availability depends on browser and permission; the browser provider may process audio remotely. Text chat remains available. Microphone stops on panel close, tab hide and unmount. No OpenAI audio service is billed by these voice controls; chat requests still use OpenAI API credits.
+
+References: https://developers.openai.com/api/docs/guides/structured-outputs and https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition .
