@@ -5,7 +5,7 @@ import {validConnection,validateProject} from '../src/graph.mjs';
 import worker from '../worker/index.mjs';
 import {verifyUser} from '../worker/auth.mjs';
 test('all supported models build real async tasks with a single result',()=>{
- for(const model of models){const t=buildTask({model:model.label,prompt:'Uma paisagem cinematográfica',ratio:'16:9',duration:'4'},crypto.randomUUID());assert.equal(t.model,model.id);assert.equal(t.numberResults,1);assert.equal(t.deliveryMethod,'async');assert.ok(t.width>0);}
+ for(const model of models){const t=buildTask({model:model.label,prompt:'Uma paisagem cinematográfica',ratio:'16:9',duration:model.id.startsWith('minimax:')?'5':'4'},crypto.randomUUID());assert.equal(t.model,model.id);assert.equal(t.numberResults,1);assert.equal(t.deliveryMethod,'async');assert.ok(t.width>0);}
 });
 test('reference frames use resolution instead of conflicting dimensions',()=>{const t=buildTask({model:'VEO',prompt:'Uma câmera avança',ratio:'16:9',reference:'https://im.runware.ai/test.png'},crypto.randomUUID());assert.equal(t.width,undefined);assert.equal(t.resolution,'720p');assert.equal(t.inputs.frameImages.length,1);});
 test('reject unsupported models, ratios, prompt sizes and unsafe reference URLs',()=>{const input={model:'Nano Banana Pro',prompt:'A sunset',ratio:'1:1'};for(const patch of [{model:'invented'},{ratio:'4:99'},{prompt:'x'.repeat(3001)},{reference:'https://evil.example/p.png'}])assert.throws(()=>buildTask({...input,...patch},crypto.randomUUID()));assert.equal(safeMedia('https://im.runware.ai.evil.test/a'),false);assert.equal(safeMedia('http://im.runware.ai/a'),false);});

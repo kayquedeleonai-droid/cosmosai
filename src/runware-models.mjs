@@ -1,3 +1,8 @@
+// MiniMax dimensions and AIR IDs verified in Runware docs on 2026-10-16.
+const h3_768={'1:1':[768,768],'16:9':[1344,768],'9:16':[768,1344],'4:3':[1024,768],'3:4':[768,1024],'21:9':[1536,672]};
+const h3_1440={'1:1':[1440,1440],'16:9':[2560,1440],'9:16':[1440,2560],'4:3':[1920,1440],'3:4':[1440,1920],'21:9':[2944,1248]};
+const h3_480={'1:1':[480,480],'16:9':[832,480],'9:16':[480,832],'4:3':[640,480],'3:4':[480,640],'21:9':[960,416]};
+const h3_fast={'1:1':[480,480],'16:9':[864,480],'9:16':[480,864],'4:3':[640,480],'3:4':[480,640],'21:9':[1120,480]};
 // AIR identifiers and dimensions verified against Runware's model references.
 export const models = [
   {label:'Nano Banana Pro',id:'google:4@2',kind:'generate',sizes:{'1:1':[1024,1024],'16:9':[1376,768],'9:16':[768,1376]}},
@@ -9,6 +14,10 @@ export const models = [
   {label:'Nano Banana 2',id:'google:4@3',kind:'generate',sizes:{'1:1':[1024,1024],'16:9':[1376,768],'9:16':[768,1376]}},
   {label:'Seedance 2.0',id:'bytedance:seedance@2.0',kind:'video',sizes:{'1:1':[960,960],'16:9':[1280,720],'9:16':[720,1280]}},
   {label:'Kling 3.0 Turbo',id:'klingai:kling-video@3.0-turbo',kind:'video',sizes:{'1:1':[960,960],'16:9':[1280,720],'9:16':[720,1280]}},
+  {label:'MiniMax H3',id:'minimax:h3@0',kind:'video',sizes:h3_768,defaultResolution:'768p'},
+  {label:'MiniMax H3 Fast',id:'minimax:h3@fast',kind:'video',sizes:h3_fast,defaultResolution:'480p'},
+  {label:'MiniMax H3 Max',id:'minimax:h3@max',kind:'video',sizes:h3_768,defaultResolution:'768p'},
+  {label:'MiniMax H3 Max Turbo',id:'minimax:h3@max-turbo',kind:'video',sizes:h3_768,defaultResolution:'768p'},
 ];
 // Resolution pairs from each model's Runware reference, checked 2026-10-10.
 // GPT 4K is UHD landscape/portrait only: 4096-square exceeds its pixel budget.
@@ -22,7 +31,13 @@ const presets={
 presets['google:4@3']=presets['google:4@2'];
 presets['bytedance:seedance@2.0']={'480p':{'1:1':[640,640],'16:9':[864,496],'9:16':[496,864]},'720p':models[7].sizes,'1080p':presets['bytedance:seedance@2.5']['1080p'],'4K':{'1:1':[2880,2880],'16:9':[3840,2160],'9:16':[2160,3840]}};
 presets['klingai:kling-video@3.0-turbo']={'720p':models[8].sizes,'1080p':presets['bytedance:seedance@2.5']['1080p']};
+presets['minimax:h3@0']={'768p':h3_768,'1440p':h3_1440};
+presets['minimax:h3@fast']={'480p':h3_fast};
+presets['minimax:h3@max']={'480p':h3_480,'768p':h3_768};
+presets['minimax:h3@max-turbo']=presets['minimax:h3@max'];
 export function durationOptions(model){
+  if(model?.id.startsWith('minimax:h3@'))return Array.from({length:11},(_,i)=>String(i+5));
+
   const min=model?.id==='klingai:kling-video@3.0-turbo'?3:model?.id==='bytedance:seedance@2.0'?4:0;
   return min?Array.from({length:16-min},(_,i)=>String(i+min)):['4','6','8'];
 }
@@ -30,7 +45,7 @@ export function resolutionPresets(model){return model?presets[model.id.startsWit
 export function availableResolutions(model,ratio){return Object.entries(resolutionPresets(model)||{}).filter(([,sizes])=>Object.hasOwn(sizes,ratio)).map(([key])=>key);}
 export function outputSize(model,ratio,resolution){
   const options=resolutionPresets(model);
-  const tier=resolution||(model?.kind==='video'?'720p':'1K');
+  const tier=resolution||model?.defaultResolution||(model?.kind==='video'?'720p':'1K');
   return options&&Object.hasOwn(options,tier)&&Object.hasOwn(options[tier],ratio)?options[tier][ratio]:undefined;
 }
 export function findModel(label) {
@@ -44,8 +59,8 @@ export function switchModel(data,label){
   if(data.pendingTask)throw new Error('Consulte a geração pendente antes de trocar o modelo.');
   const ratio=Object.hasOwn(model.sizes,data.ratio)?data.ratio:(model.kind==='video'?'16:9':'1:1');
   const resolutions=availableResolutions(model,ratio);
-  const fallback=model.kind==='video'?'720p':'1K';
-  return {...(model.kind==='video'?{duration:durationOptions(model).includes(data.duration)?data.duration:'4'}:{}),model:model.label,ratio,resolution:resolutions.includes(data.resolution)?data.resolution:fallback,quality:qualityOptions(model).includes(data.quality)?data.quality:undefined,status:undefined};
+  const fallback=model.defaultResolution||(model.kind==='video'?'720p':'1K');
+  return {...(model.kind==='video'?{duration:durationOptions(model).includes(data.duration)?data.duration:durationOptions(model)[0]}:{}),model:model.label,ratio,resolution:resolutions.includes(data.resolution)?data.resolution:fallback,quality:qualityOptions(model).includes(data.quality)?data.quality:undefined,status:undefined};
 }
 // Runware input schemas checked 2026-10-16; video slots are first/last frames.
 export function referenceLimit(model){
@@ -72,7 +87,7 @@ export function buildTask(input,taskUUID) {
   if(!model)throw new Error('Modelo não suportado. Selecione um modelo Runware.');
   if(typeof input.prompt!=='string'||input.prompt.trim().length<3||input.prompt.length>3000)throw new Error('O prompt deve ter entre 3 e 3000 caracteres.');
   if(!Object.hasOwn(model.sizes,input.ratio))throw new Error('Proporção não suportada por este modelo.');
-  const resolution=input.resolution||(model.kind==='video'?'720p':'1K');
+  const resolution=input.resolution||model.defaultResolution||(model.kind==='video'?'720p':'1K');
   const size=outputSize(model,input.ratio,resolution);
   if(!size)throw new Error('Resolução não suportada para este modelo e proporção.');
   if(input.references!=null&&input.reference!=null)throw new Error('Envie reference ou references, não ambos.');
@@ -90,12 +105,12 @@ export function buildTask(input,taskUUID) {
   const task={taskType:video?'videoInference':'imageInference',taskUUID,model:model.id,positivePrompt:input.prompt.trim(),numberResults:1,outputType:'URL',outputFormat:video?'MP4':'PNG',deliveryMethod:'async',includeCost:true};
   if(input.quality!=null){if(!qualityOptions(model).includes(input.quality))throw new Error('Qualidade não suportada por este modelo.');task.settings={quality:input.quality};}
   if(video){
-    const duration=Number(input.duration||4);
+    const duration=Number(input.duration||(model.id.startsWith('minimax:')?5:4));
     if(!durationOptions(model).includes(String(duration)))throw new Error('Duração não suportada por este modelo.');
     if(model.id==='klingai:kling-video@3.0-turbo'&&references.length&&input.prompt.length>2500)throw new Error('Kling com imagem aceita prompts de até 2500 caracteres.');
     task.duration=duration;
     if(referenceMode){task.inputs={...(references.length?{referenceImages:references}:{}),...(referenceVideos.length?{referenceVideos}:{})};task.resolution=resolution;}
-    else if(references.length){task.inputs={frameImages:references};task.resolution=model.id==='bytedance:seedance@2.0'&&resolution==='4K'?'4k':resolution;}
+    else if(references.length){task.inputs={frameImages:references};if(model.id!=='minimax:h3@fast')task.resolution=model.id==='bytedance:seedance@2.0'&&resolution==='4K'?'4k':resolution;}
     else {task.width=size[0];task.height=size[1];}
   }else {task.width=size[0];task.height=size[1];if(references.length)task.inputs={referenceImages:references};}
   return task;

@@ -6,7 +6,7 @@ export function estimateCost(input){
 
  const m=findModel(input.model);if(!m)throw new Error('Modelo inválido.');
 
- const r=input.resolution||(m.kind==='video'?'720p':'1K'),d=Number(input.duration||4);
+ const r=input.resolution||m.defaultResolution||(m.kind==='video'?'720p':'1K'),d=Number(input.duration||(m.id.startsWith('minimax:')?5:4));
 
  let usd,variable=false;
 
@@ -24,6 +24,11 @@ export function estimateCost(input){
 
  else if(m.id==='klingai:kling-video@3.0-turbo')usd=(r==='1080p'?.14:.112)*d;
 
+ else if(m.id==='minimax:h3@0')usd={'768p':.08,'1440p':.13}[r]*d;
+ else if(m.id==='minimax:h3@fast')usd=({'480p':.046}[r])*d;
+ else if(m.id==='minimax:h3@max')usd=({'480p':.05,'768p':.08}[r])*d;
+ else if(m.id==='minimax:h3@max-turbo')usd=({'480p':.025,'768p':.04}[r])*d;
+
  else if(m.id==='google:3@2')usd=(r==='4K'?.60:.40)*d;
 
  if(!Number.isFinite(usd)||usd<=0)throw new Error('Preço indisponível para esta configuração.');
@@ -34,7 +39,7 @@ export function estimateCost(input){
  if(m.id==='bytedance:seedream@5.0-pro')usd+=Math.max(0,referenceCount-1)*.00321;
  const reserve=m.id.startsWith('openai:')?Math.max(1,usd*20):usd*1.3+.01+referenceCount*.01;
 
- return {usd,reserve:Math.ceil(reserve*10000)/10000,variable,updated:'2026-10-10'};
+ return {usd,reserve:Math.ceil(reserve*10000)/10000,variable,updated:m.id.startsWith('minimax:')?'2026-10-16':'2026-10-10'};
 
 }
 

@@ -208,3 +208,9 @@ body:has(.pwa-controls button) .cosmos-assistant{bottom:72px}body:has(.pwa-contr
 .prompt-field .prompt-text-stack .prompt-text::placeholder{-webkit-text-fill-color:#65656b;color:#65656b}
 .prompt-field .prompt-text-stack .prompt-text::selection{background:#08b5ce55;color:transparent;-webkit-text-fill-color:transparent}
 @media(forced-colors:active){.prompt-highlight-clip{display:none}.prompt-field .prompt-text-stack .prompt-text{color:CanvasText;-webkit-text-fill-color:CanvasText}}
+
+/* Keep the Cosmos arrow on node bodies instead of React Flow's grab cursor. */
+.flow-canvas .react-flow__node.draggable,
+.flow-canvas .react-flow__node.draggable.dragging,
+.flow-canvas .studio-node,
+.flow-canvas .studio-node .video-preview-player video{cursor:url('/selection-cursor.svg') 4 4,default}

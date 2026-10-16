@@ -55,14 +55,14 @@ export function validateProject(value) {
     if (n.data.prompt != null && typeof n.data.prompt !== 'string') throw new Error('Prompt inválido.');
     if(n.data.imageName!=null&&(typeof n.data.imageName!=='string'||n.data.imageName.length>60||/[\[\]\n@]/.test(n.data.imageName)))throw new Error('Nome de imagem inválido.');
     if (n.data.model != null && (typeof n.data.model !== 'string' || n.data.model.length > 80)) throw new Error('Modelo inválido.');
-    if (n.data.ratio != null && !['1:1','16:9','9:16'].includes(n.data.ratio)) throw new Error('Proporção inválida.');
+    if (n.data.ratio != null && !['1:1','16:9','9:16','4:3','3:4','21:9'].includes(n.data.ratio)) throw new Error('Proporção inválida.');
     if(n.data.compareMode!=null&&!['wipe','side','overlay'].includes(n.data.compareMode))throw new Error('Modo de comparação inválido.');
     if(n.data.compareOutput!=null&&!['a','b'].includes(n.data.compareOutput))throw new Error('Saída de comparação inválida.');
     if(n.data.compareSplit!=null&&(typeof n.data.compareSplit!=='string'||!/^\d{1,3}$/.test(n.data.compareSplit)||Number(n.data.compareSplit)>100))throw new Error('Divisória inválida.');
     if (n.data.result != null && (typeof n.data.result !== 'string' || (n.data.result !== '/demo-landscape.svg' && !safeMedia(n.data.result) && !isLocalMedia(n.data.result) && !/^data:image\/(png|jpeg|webp);base64,/.test(n.data.result)))) throw new Error('Resultado inválido.');
     if(n.data.pendingTask!=null&&!/^[0-9a-f-]{36}$/i.test(n.data.pendingTask))throw new Error('Geração pendente inválida.');
     if(n.data.quality!=null&&!['auto','low','medium','high','xhigh','max'].includes(n.data.quality))throw new Error('Qualidade inválida.');
-    if(n.data.resolution!=null&&!['480p','720p','1080p','1K','2K','4K'].includes(n.data.resolution))throw new Error('Resolução inválida.');
+    if(n.data.resolution!=null&&!['480p','720p','768p','1080p','1440p','1K','2K','4K'].includes(n.data.resolution))throw new Error('Resolução inválida.');
     if(n.data.duration!=null&&!Array.from({length:13},(_,i)=>String(i+3)).includes(n.data.duration))throw new Error('Duração inválida.');
     if(n.data.mediaType!=null&&!['image','video'].includes(n.data.mediaType))throw new Error('Tipo de mídia inválido.');
     if (n.data.image != null && (typeof n.data.image !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(n.data.image))) throw new Error('Imagem inválida.');
