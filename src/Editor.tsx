@@ -90,25 +90,13 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
 }
 
 type MenuChoice={label:string;kind:Kind;model?:string};
-const groups=[
-  {label:'Gerar 3D',icon:Box,items:[] as MenuChoice[]},
-  {label:'Upscale de Imagem',icon:ScanLine,items:[{label:'Upscale',kind:'upscale'}] as MenuChoice[]},
-  {label:'Utilitários',icon:Wrench,items:[{label:'Comparar imagens',kind:'compare'},{label:'Resultado',kind:'output'}] as MenuChoice[]},
-  {label:'Entrada / Saída',icon:LogIn,items:[{label:'Carregar imagem',kind:'image'},{label:'Resultado',kind:'output'}] as MenuChoice[]},
-  {label:'Texto / IA',icon:MessageSquare,items:[{label:'Prompt',kind:'prompt'}] as MenuChoice[]},
-];
 function NodeMenu({x,y,onAdd,onClose}: {x:number;y:number;onAdd:(choice:MenuChoice)=>void;onClose:()=>void}){
-  const [search,setSearch]=useState('');const [expanded,setExpanded]=useState('');
-  const choices=[{label:'Gerar imagem',kind:'generate',model:'Nano Banana Pro'} as MenuChoice,{label:'Gerar vídeo',kind:'video',model:'Seedance 2.5'} as MenuChoice,{label:'Prompt',kind:'prompt'} as MenuChoice,...groups.flatMap(g=>g.items)].filter((item,index,items)=>items.findIndex(i=>i.label===item.label)===index);
-  return <div className="node-menu" role="dialog" aria-label="Adicionar node" style={{left:Math.max(8,Math.min(x,window.innerWidth-310)),top:Math.max(70,Math.min(y,window.innerHeight-430))}} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')onClose();}}>
+  const [search,setSearch]=useState('');
+  const choices:MenuChoice[]=[{label:'Prompt',kind:'prompt'},{label:'Gerar imagem',kind:'generate',model:'Nano Banana Pro'},{label:'Gerar vídeo',kind:'video',model:'Seedance 2.5'}];
+  return <div className="node-menu" role="dialog" aria-label="Adicionar node" style={{left:Math.max(8,Math.min(x,window.innerWidth-310)),top:Math.max(70,Math.min(y,window.innerHeight-190))}} onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape')onClose();}}>
     <div className="node-search"><Search size={15}/><input autoFocus aria-label="Buscar nodes" placeholder="Buscar nodes…" value={search} onChange={e=>setSearch(e.target.value)}/><button aria-label="Fechar menu de nodes" onClick={onClose}><X size={13}/></button></div>
-    <div className="node-menu-items">{search?choices.filter(c=>c.label.toLowerCase().includes(search.toLowerCase())).map(c=><button key={c.label} onClick={()=>onAdd(c)}>{c.label}<Plus size={12}/></button>):<>
-      <button className="featured" onClick={()=>onAdd({label:'Prompt',kind:'prompt'})}>Prompt</button>
-      <button onClick={()=>onAdd({label:'Gerar imagem',kind:'generate',model:'Nano Banana Pro'})}>Gerar imagem <small>RUNWARE</small></button>
-      <button onClick={()=>onAdd({label:'Gerar vídeo',kind:'video',model:'Seedance 2.5'})}>Gerar vídeo <small>RUNWARE</small></button>
-      {groups.map(group=><div className="node-menu-group" key={group.label}><button aria-expanded={expanded===group.label} onClick={()=>setExpanded(expanded===group.label?'':group.label)}>{expanded===group.label?<ChevronDown size={12}/>:<ChevronRight size={12}/>}<group.icon size={14}/><strong>{group.label}</strong></button>{expanded===group.label&&<div className="node-submenu">{group.items.length?group.items.map(item=><button key={item.label} onClick={()=>onAdd(item)}>{item.label}<Plus size={12}/></button>):<p>Modelos 3D disponíveis em uma próxima etapa.</p>}</div>}</div>)}
-    </>}</div>
-    {search&&!choices.some(c=>c.label.toLowerCase().includes(search.toLowerCase()))&&<p className="menu-empty">Nenhum node encontrado.</p>}
+    <div className="node-menu-items">{choices.filter(c=>c.label.toLowerCase().includes(search.trim().toLowerCase())).map(c=><button key={c.kind} className={c.kind==='prompt'?'featured':undefined} onClick={()=>onAdd(c)}>{c.label}{c.model&&<small>RUNWARE</small>}</button>)}</div>
+    {search&&!choices.some(c=>c.label.toLowerCase().includes(search.trim().toLowerCase()))&&<p className="menu-empty">Nenhum node encontrado.</p>}
   </div>;
 }
 
