@@ -151,3 +151,10 @@
 .prompt-field .prompt-text{display:block;background:transparent;border-radius:12px 12px 0 0;box-shadow:none}
 .prompt-field .prompt-footer{margin:0;padding:4px 15px 10px;background:transparent}
 .prompt-field:focus-within{background:#25272c;box-shadow:0 0 0 1px #06bdd52e}
+/* Reserve balance space so polling and changing digits never shift the toolbar. */
+.runware-balance{width:156px;min-width:156px;height:40px}
+.runware-balance>span{flex:1;min-width:0}
+.runware-balance>svg{flex-shrink:0}
+.runware-balance strong{font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.runware-balance:disabled{opacity:1}
+@media(max-width:1050px){.editor-actions .runware-balance{width:132px;min-width:132px}}
