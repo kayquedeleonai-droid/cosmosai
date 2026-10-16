@@ -1,3 +1,4 @@
+import {workflowCover} from './workflow-cover.mjs';
 import RunwareBalance from './RunwareBalance';
 import DownloadMediaButton from './DownloadMediaButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -103,7 +104,7 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
         {page==='workflows' && <>
           <div className="workflows-toolbar"><div className="folder-tabs"><button className={filter==='Todos'?'active':''} onClick={()=>setFilter('Todos')}>Todos</button>{allFolders.map(folder=><button key={folder} className={filter===folder?'active':''} onClick={()=>setFilter(folder)}>{folder}</button>)}<button onClick={()=>setModal('folder')}><Plus size={12}/> Pasta</button></div><div className="workflow-actions"><div className="search-compact"><Search size={15}/><input aria-label="Buscar workflows" placeholder="Buscar" value={search} onChange={e=>setSearch(e.target.value)}/></div><button className="icon-button" aria-label="Importar workflow" title="Importar workflow" onClick={()=>importRef.current?.click()}><Upload size={17}/></button><button className="icon-button" aria-label="Atualizar nuvem" title="Atualizar nuvem" disabled={busy} onClick={()=>void sync()}><RefreshCw className={busy?'spin':''} size={17}/></button></div></div>
           <div className="workflow-grid">{filtered.map(p=>{
-            const cover=p.nodes.find(n=>n.data.result || n.data.image);const image=cover?.data.result||cover?.data.image;
+            const image=workflowCover(p);
             return <article className="workflow-card" key={p.id}><button className="workflow-open" onClick={()=>setActive(p.id)} aria-label={`Abrir ${p.name || 'Untitled'}`}>{image?<img src={image} alt=""/>:<Workflow className="workflow-placeholder" size={34}/>}<div className="workflow-card-caption"><strong>{p.name || 'Untitled'}</strong><small><Clock3 size={11}/>{relativeDate(p.updatedAt)}</small></div></button><details className="card-options"><summary aria-label={`Opções de ${p.name}`}><MoreHorizontal size={17}/></summary><div><button onClick={()=>{upsert({...p,id:crypto.randomUUID(),name:`${p.name} — cópia`.slice(0,120),updatedAt:Date.now()});message('Workflow duplicado.');}}><Copy size={13}/>Duplicar</button><button onClick={()=>exportProject(p)}><Download size={13}/>Exportar JSON</button></div></details></article>;
           })}</div>
           {!filtered.length && <div className="empty-state"><Workflow size={38}/><h2>{search?'Nenhum workflow encontrado':'Seu próximo universo começa aqui'}</h2><p>{search?'Tente buscar por outro nome.':'Adicione nodes, conecte ideias e explore seu primeiro fluxo.'}</p><button className="outline-button" onClick={()=>create(true)}>Abrir um exemplo <ArrowUpRight size={15}/></button></div>}
@@ -122,4 +123,3 @@ function Workspace({user,onExit}: {user:User|null;onExit:()=>Promise<void>}) {
     {toast && <div className="toast" role="status">{toast}<button aria-label="Fechar mensagem" onClick={()=>setToast('')}><X size={15}/></button></div>}
   </div>;
 }
-

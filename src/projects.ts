@@ -1,3 +1,4 @@
+import {validCover} from './workflow-cover.mjs';
 import {cleanGroups} from './node-groups.mjs';
 import { validateProject } from './graph.mjs';
 import type { Project, FlowNode } from './types';
@@ -6,6 +7,7 @@ export function cleanProject(input: unknown): Project {
   const p = validateProject(input);
   return {
     version: 1,
+    ...(validCover(p.coverImage)?{coverImage:p.coverImage}:{}),
     groups: cleanGroups(p.groups,p.nodes),
     id: typeof p.id === 'string' && /^[\w-]{1,80}$/.test(p.id) ? p.id : crypto.randomUUID(),
     name: p.name,

@@ -27,6 +27,7 @@ export type NodeData = {
 export type FlowNode = Node<NodeData>;
 export type NodeGroup = {id:string;name:string;color:string;nodeIds:string[]};
 export type Project = {
+  coverImage?: string;
   groups?: NodeGroup[];
   version: 1;
   id: string;
