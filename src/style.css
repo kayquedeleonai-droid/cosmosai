@@ -81,3 +81,17 @@
 .reference-add:hover{box-shadow:0 0 0 5px #06bdd520;background:#16404b}.reference-add:disabled{opacity:.45}
 .node-settings button{font-size:10px;color:#09bed5;padding:7px 0}.node-settings button:disabled{opacity:.4}
 @media(prefers-reduced-motion:reduce){.node-generate .node-preview,.node-video .node-preview{transition:none}}
+/* Media fills the card; compact controls float above it only during interaction. */
+:is(.node-generate,.node-video)>.react-flow__handle{z-index:12}
+:is(.node-generate,.node-video)>.reference-add{z-index:12}
+:is(.node-generate,.node-video)>.node-preview{border-radius:12px;isolation:isolate}
+:is(.node-generate,.node-video)>.node-controls{position:absolute;left:0;right:0;bottom:0;z-index:8;height:49px;padding:12px 8px 7px;gap:5px;background:linear-gradient(transparent,rgba(8,10,12,.85));opacity:0;pointer-events:none;transition:opacity .14s ease}
+:is(.node-generate,.node-video):is(:hover,:focus-within,:has(.node-settings[open]))>.node-controls{opacity:1;pointer-events:auto}
+:is(.node-generate,.node-video)>.node-controls>select{height:26px;min-height:26px;width:54px;border-radius:14px;font-size:9px;background:#242428db}
+:is(.node-generate,.node-video)>.node-controls>.model-select{flex:0 1 120px;width:120px;min-width:70px}
+:is(.node-generate,.node-video)>.node-controls>.node-play{width:28px;height:28px;min-width:28px}
+:is(.node-generate,.node-video)>.node-controls .node-settings summary{padding:6px}
+:is(.node-generate,.node-video)>.generation-status{position:absolute;top:100%;left:0;right:0;background:#252027f2;border:1px solid #493341;border-radius:7px;margin-top:6px}
+.node-video:has(video)>.node-controls{bottom:36px;border-radius:8px}
+@media(hover:none),(pointer:coarse){:is(.node-generate,.node-video)>.node-controls{opacity:1;pointer-events:auto}:is(.node-generate,.node-video)>.node-controls>select{height:32px;min-height:32px}}
+@media(prefers-reduced-motion:reduce){:is(.node-generate,.node-video)>.node-controls{transition:none}}
