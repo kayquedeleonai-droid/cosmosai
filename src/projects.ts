@@ -1,3 +1,4 @@
+import {nameMediaNodes,renameMention} from './image-mentions.mjs';
 import {validCover} from './workflow-cover.mjs';
 import {cleanGroups} from './node-groups.mjs';
 import { validateProject } from './graph.mjs';
@@ -5,6 +6,15 @@ import type { Project, FlowNode } from './types';
 
 export function cleanProject(input: unknown): Project {
   const p = validateProject(input);
+  const named=nameMediaNodes(p.nodes);
+  for(const original of p.nodes){
+    if(original.data.imageName)continue;
+    const next=named.find((n:FlowNode)=>n.id===original.id)?.data.imageName;
+    if(!next)continue;
+    const legacy=(['video','loadvideo','upscalevideo'].includes(original.data.kind)||original.data.mediaType==='video'?'Vídeo':'Imagem')+' '+original.id.slice(0,8);
+    for(const n of named)if(n.data.kind==='prompt'&&n.data.prompt)n.data={...n.data,prompt:renameMention(n.data.prompt,legacy,next)};
+  }
+  p.nodes=named;
   return {
     version: 1,
     ...(validCover(p.coverImage)?{coverImage:p.coverImage}:{}),

@@ -1,11 +1,21 @@
+import {isLocalMedia} from './local-media.mjs';
 import {nodeImage} from './workflow-cover.mjs';
 import {safeMedia} from './runware-models.mjs';
 
-export const imageName=node=>node.data.imageName?.trim()||`${['video','loadvideo','upscalevideo'].includes(node.data.kind)||node.data.mediaType==='video'?'Vídeo':'Imagem'} ${node.id.slice(0,8)}`;
+export const imageName=node=>node.data.imageName?.trim()||node.data.generatedModel||node.data.model||({generate:'Nano Banana Pro',video:'Seedance 2.5',image:'Load Image',loadvideo:'Load Video',upscale:'Magnific',upscalevideo:'Topaz',output:'Output'})[node.data.kind]||'Image';
+export function nameMediaNodes(nodes){
+ const used=new Set(nodes.map(n=>n.data.imageName?.trim().toLocaleLowerCase()).filter(Boolean));
+ return nodes.map(n=>{
+  if(n.data.imageName||!['image','loadvideo','generate','video','upscale','upscalevideo','output'].includes(n.data.kind))return n;
+  const base=imageName(n);let name=base,i=2;while(used.has(name.toLocaleLowerCase()))name=base+' '+i++;
+  used.add(name.toLocaleLowerCase());return {...n,data:{...n.data,imageName:name}};
+ });
+}
+
 export const mentionToken=name=>/^[\p{L}\p{N}_-]+$/u.test(name)?`@${name}`:`@[${name}]`;
 const tokens=()=>/(^|[\s(])(?:@\[([^\]\n]+)\]|@([\p{L}\p{N}_-]+))/gu;
 export const renameMention=(prompt,oldName,nextName)=>prompt.replace(tokens(),(token,prefix,bracket,simple)=>(bracket||simple)===oldName?prefix+mentionToken(nextName):token);
-export function imageChoices(nodes){return nodes.flatMap(node=>{const video=['video','loadvideo','upscalevideo'].includes(node.data.kind)||node.data.mediaType==='video';const src=video?(safeMedia(node.data.result)?node.data.result:undefined):nodeImage(node);return src?[{id:node.id,name:imageName(node),src,video}]:[];});}
+export function imageChoices(nodes){return nodes.flatMap(node=>{const video=['video','loadvideo','upscalevideo'].includes(node.data.kind)||node.data.mediaType==='video';const src=video?((safeMedia(node.data.result)||isLocalMedia(node.data.result))?node.data.result:undefined):nodeImage(node);return src?[{id:node.id,name:imageName(node),src,video}]:[];});}
 export function mentionQuery(text,caret){
  const match=/(?:^|\s)@([^\[\]@\s]*)$/.exec(text.slice(0,caret));
  return match?{start:caret-match[1].length-1,end:caret,query:match[1]}:null;

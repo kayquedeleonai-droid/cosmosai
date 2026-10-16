@@ -1,6 +1,8 @@
+import {isLocalMedia,readLocalMedia} from './local-media.mjs';
 import {safeMedia} from './runware-models.mjs';
 
 export async function mediaBlob(src,video=false){
+  if(isLocalMedia(src)){const blob=await readLocalMedia(src);const ext=({'image/png':'png','image/jpeg':'jpg','image/webp':'webp','video/mp4':'mp4','video/webm':'webm'})[blob.type]||(video?'mp4':'png');return {blob,filename:'cosmos-local.'+ext};}
   if(!safeMedia(src)&&src!=='/demo-landscape.svg'&&!/^data:image\/(png|jpeg|webp);base64,/.test(src))throw new Error('Endereço de mídia inválido.');
   const response=await fetch(src,{credentials:'omit',signal:AbortSignal.timeout(120000)});
   if(!response.ok)throw new Error('Não foi possível baixar. O arquivo pode ter expirado.');

@@ -6,7 +6,7 @@ const image={id:'source-1',data:{kind:'generate',imageName:'Personagem',result:'
 test('mentions use names, preserve surrounding text and attach each reference once',()=>{
  assert.deepEqual(resolveImageMentions('Use @[Personagem] perto de @[Personagem].',[image],'target'),{prompt:'Use reference image 1 perto de reference image 1.',references:[image.data.result]});
  assert.equal(resolveImageMentions('@[Personagem]',[image],'target',[image.data.result]).references.length,1);
- assert.equal(imageName({id:'abcdef12345',data:{}}),'Imagem abcdef12');
+ assert.equal(imageName({id:'abcdef12345',data:{}}),'Image');
  assert.deepEqual(mentionQuery('Texto @Pers',11),{start:6,end:11,query:'Pers'});
  assert.equal(mentionQuery('email@site.com',14),null);
  assert.equal(mentionQuery('@[Personagem]',13),null);
@@ -28,4 +28,15 @@ test('missing and ambiguous references fail before generation',()=>{
  const nodes=Array.from({length:3},(_,i)=>({id:String(i),data:{kind:'image',imageName:`Foto ${i}`,image:`https://im.runware.ai/${i}.png`}}));
  const resolved=resolveImageMentions('Animate @[Foto 0] @[Foto 1] @[Foto 2]',nodes,'target');
  assert.throws(()=>buildTask({...resolved,model:'Seedance 2.5',ratio:'16:9',resolution:'720p',duration:4},crypto.randomUUID()));
+});
+
+test('default model names are readable, unique and keep manual names',async()=>{
+ const {nameMediaNodes}=await import('../src/image-mentions.mjs');
+ const nodes=nameMediaNodes([
+ {id:'a',data:{kind:'generate',model:'Nano Banana Pro'}},
+ {id:'b',data:{kind:'generate',model:'Nano Banana Pro'}},
+ {id:'c',data:{kind:'generate',model:'Other',imageName:'Character'}},
+ {id:'d',data:{kind:'video',generatedModel:'Seedance 2.5',model:'VEO 3.1'}},
+ ]);
+ assert.deepEqual(nodes.map(imageName),['Nano Banana Pro','Nano Banana Pro 2','Character','Seedance 2.5']);
 });

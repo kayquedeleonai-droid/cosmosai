@@ -1,9 +1,28 @@
+import {isLocalMedia,localMediaData} from './local-media.mjs';
 import {auth} from './firebase';
 export const runwareConfigured=Boolean(import.meta.env.VITE_RUNWARE_API_URL);
 export type Generation={state:string;url?:string;mediaType?:string;cost?:number;error?:string;requestId?:string};
 export async function requestGeneration(path:string,payload:Record<string,unknown>,signal?:AbortSignal):Promise<any>{
   if(!runwareConfigured)throw new Error('O backend Runware ainda não foi ativado.');
   if(!auth?.currentUser)throw new Error('Entre na sua conta para gerar com Runware.');
+  if(path==='generate'){try{
+    payload={...payload};
+    // Upload only the references actually used by this explicit generation.
+    const uploads=new Map<string,string>();
+    const resolve=async(src:string)=>{
+      if(!isLocalMedia(src))return src;
+      if(uploads.has(src))return uploads.get(src)!;
+      const media=await localMediaData(src);
+      const result=await requestGeneration('media-upload',{media},signal);
+      if(!result.url)throw new Error('Não foi possível preparar a referência local.');
+      uploads.set(src,result.url);return result.url;
+    };
+    for(const key of ['references','referenceVideos']){
+      if(Array.isArray(payload[key])){const resolved=[];for(const src of payload[key] as string[])resolved.push(await resolve(src));payload[key]=resolved;}
+    }
+    // Magnific receives the original image directly, without uploading to Runware.
+    if(isLocalMedia(payload.reference))payload.reference=await localMediaData(payload.reference);
+  }catch(error){Object.assign(error as Error,{notSubmitted:true});throw error;}}
   const token=await auth.currentUser.getIdToken();
   const response=await fetch(`${import.meta.env.VITE_RUNWARE_API_URL.replace(/\/$/,'')}/${path}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(35000)]):AbortSignal.timeout(35000)});
   const body=await response.json();
