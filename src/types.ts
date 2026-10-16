@@ -5,6 +5,7 @@ export type Kind = keyof typeof catalog;
 export type NodeData = {
   kind: Kind;
   prompt?: string;
+  imageName?: string;
   referenceSlots?: string;
   image?: string;
   result?: string;

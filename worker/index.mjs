@@ -1,7 +1,10 @@
+import {magnificModel,magnificTask} from '../src/magnific.mjs';
+import {createMagnific,pollMagnific} from './magnific.mjs';
 import {buildTask,readResult} from '../src/runware-models.mjs';
 import {estimateCost} from '../src/pricing.mjs';
 import {verifyIdentity} from './auth.mjs';
 import {readBalance} from './balance.mjs';
+import {uploadMedia} from './media-upload.mjs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const spent="CASE WHEN actual IS NOT NULL THEN actual ELSE reserved END";
 const day=()=>new Date().toISOString().slice(0,10);
@@ -31,6 +34,11 @@ export default {
     account=await env.DB.prepare('SELECT * FROM accounts WHERE uid=?').bind(uid).first();
    }
    if(path==='/me')return reply({account,isAdmin,verified:identity.verified,storage:false});
+   if(path==='/media-upload'){
+    if(!identity.verified||account.status!=='active')return reply({error:'Sua conta precisa estar verificada e aprovada para enviar arquivos.'},403);
+    if(!env.RUNWARE_API_KEY)return reply({error:'Runware indisponível.'},503);
+    try{return reply(await uploadMedia(input.media,env.RUNWARE_API_KEY));}catch(error){return reply({error:error.message||'Falha no upload.'},400);}
+   }
    if(path.startsWith('/admin/')){
     if(!isAdmin)return reply({error:'Acesso exclusivo do administrador.'},403);
     if(path==='/admin/balance'){
@@ -68,10 +76,12 @@ export default {
    if(!uuid.test(input.requestId))return reply({error:'Identificador inválido.'},400);
    let job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();
    if(job&&job.uid!==uid)return reply({error:'Geração não encontrada.'},404);
-   if(!env.RUNWARE_API_KEY)return reply({error:'Runware indisponível.'},503);
+   const isMagnific=(job?.model||input.model)===magnificModel;
+   if(isMagnific&&!isAdmin)return reply({error:'O Magnific está disponível para a conta proprietária.'},403);
+   if(!(isMagnific?env.MAGNIFIC_API_KEY:env.RUNWARE_API_KEY))return reply({error:'Provedor não configurado.'},503);
    if(path==='/generate'){
     if(!identity.verified||(!isAdmin&&account.status!=='active'))return reply({error:!identity.verified?'Verifique seu e-mail para gerar.':account.status==='blocked'?'Gerações bloqueadas pelo administrador.':'Sua conta aguarda aprovação do administrador.'},403);
-    let task,quote;try{task=buildTask(input,input.requestId);quote=estimateCost(input);}catch(e){return reply({error:e.message},400);}
+    let task,quote;try{task=isMagnific?magnificTask(input):buildTask(input,input.requestId);quote=isMagnific?{usd:null,reserve:0}:estimateCost(input);}catch(e){return reply({error:e.message},400);}
     const signature=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(task)))),b=>b.toString(16).padStart(2,'0')).join('');
     if(job&&job.signature!==signature)return reply({error:'Este identificador já pertence a outra geração.'},409);
     if(!job){
@@ -85,7 +95,12 @@ export default {
       (SELECT COALESCE(SUM(${spent}),0) FROM jobs WHERE day=?)+?<=(SELECT daily_usd FROM settings WHERE id=1)))`).bind(input.requestId,uid,today,units,signature,now,quote.reserve,input.model,metadata,typeof input.projectId==='string'?input.projectId.slice(0,80):null,typeof input.nodeId==='string'?input.nodeId.slice(0,100):null,uid,Number(isAdmin),today,uid,units,Number(env.USER_DAILY_UNITS)||10,today,units,Number(env.GLOBAL_DAILY_UNITS)||20,today,uid,quote.reserve,uid,today,quote.reserve).run();
      if(!reservation.meta.changes){job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();if(!job)return reply({error:'Geração pausada ou limite diário atingido (orçamento ou quantidade). Consulte o administrador. Limites renovam às 00h UTC.'},429);if(job.uid!==uid||job.signature!==signature)return reply({error:'Identificador já utilizado.'},409);}
      else{
-      let result;try{result=await callRunware(task,env.RUNWARE_API_KEY);}catch{return reply({state:'processing',requestId:input.requestId,message:'Pedido enviado. Consulte o estado para evitar cobrança duplicada.'});}
+      let result;try{
+       if(isMagnific){const submitted=await createMagnific(task,env.MAGNIFIC_API_KEY);
+        if(submitted.providerTaskId)await env.DB.prepare('UPDATE jobs SET metadata=? WHERE id=?').bind(JSON.stringify({...JSON.parse(metadata),providerTaskId:submitted.providerTaskId,provider:'magnific'}),input.requestId).run();
+        result=submitted.result||{state:'processing',message:'Envio Magnific sem confirmação. Consulte a pendência; não reenvie.'};
+       }else result=await callRunware(task,env.RUNWARE_API_KEY);
+      }catch{return reply({state:'processing',requestId:input.requestId,message:'Pedido enviado. Consulte o estado para evitar cobrança duplicada.'});}
       await saveResult(env,input.requestId,result);return reply({...result,requestId:input.requestId});
      }
     }
@@ -104,7 +119,7 @@ async function callRunware(task,key){
 async function pollJob(env,job){
  const locked=await env.DB.prepare('UPDATE jobs SET polled=? WHERE id=? AND polled<? AND state=?').bind(Date.now(),job.id,Date.now()-4500,'processing').run();
  if(!locked.meta.changes)return {state:'processing'};
- const result=await callRunware({taskType:'getResponse',taskUUID:job.id},env.RUNWARE_API_KEY);await saveResult(env,job.id,result);return result;
+ const result=job.model===magnificModel?await pollMagnific(job,env.MAGNIFIC_API_KEY):await callRunware({taskType:'getResponse',taskUUID:job.id},env.RUNWARE_API_KEY);await saveResult(env,job.id,result);return result;
 }
 async function saveResult(env,id,result){
  if(result.state==='processing')return;

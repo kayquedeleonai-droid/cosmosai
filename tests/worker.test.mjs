@@ -13,6 +13,7 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
  const originalFetch=globalThis.fetch;let charges=0,pendingOnce=false;
  globalThis.fetch=async(url,options)=>{
    if(String(url).startsWith('https://www.googleapis.com/'))return Response.json({keys:[jwk]});
+   if(String(url).startsWith('https://api.magnific.com/')){assert.equal(options.headers['x-magnific-api-key'],'magnific-test');if(options.method==='POST'){charges++;return Response.json({data:{task_id:'12345678-1234-1234-1234-123456789abc',status:'IN_PROGRESS'}});}return Response.json({data:{status:'COMPLETED',generated:['https://ai-statics.freepik.com/upscaled.jpg']}});}
    assert.equal(url,'https://api.runware.ai/v1');assert.equal(options.headers.Authorization,'Bearer secret-test');
    const [task]=JSON.parse(options.body);
    if(task.taskType==='accountManagement')return Response.json({data:[{taskType:task.taskType,taskUUID:task.taskUUID,balance:{amount:12.34,currency:'USD',freeBalance:1},team:[{email:'private@example.com'}],apiKeys:[{apiKey:'must-never-leak'}]}]});
@@ -36,6 +37,8 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
    assert.equal((await call('generate',{...input,requestId:crypto.randomUUID()},tokenB)).status,403);
    assert.equal(charges,1);
    assert.equal((await call('admin/users',{},tokenB)).status,403);
+   assert.equal((await call('media-upload',{media:'data:video/mp4;base64,AAAA'},tokenB)).status,403);
+   assert.equal((await call('media-upload',{media:'https://example.com/private.mp4'})).status,400);
    assert.equal((await call('admin/balance',{},tokenB)).status,403);
    const balance=await (await call('admin/balance',{})).json();
    assert.equal(balance.amount,12.34);assert.equal(balance.currency,'USD');assert.equal(balance.freeBalance,1);
@@ -65,19 +68,30 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
    assert.equal((await (await call('status',{requestId:recoveryId})).json()).state,'success');
    assert.equal(charges,3);
 
+   env.MAGNIFIC_API_KEY='magnific-test';
+   const upscale={requestId:crypto.randomUUID(),model:'Magnific Creative',reference:'data:image/png;base64,AAAA',upscaleFactor:'2x'};
+   const beforeMagnific=charges;
+   assert.equal((await call('generate',upscale,tokenB)).status,403);
+   assert.equal((await (await call('generate',upscale)).json()).state,'processing');
+   assert.equal(charges,beforeMagnific+1);
+   assert.equal((await (await call('status',{requestId:upscale.requestId})).json()).state,'success');
+   assert.equal((await call('generate',upscale)).status,200);assert.equal(charges,beforeMagnific+1);
+   assert.equal((await call('generate',{...upscale,upscaleFactor:'4x'})).status,409);
+   assert.equal((await call('status',{requestId:upscale.requestId},tokenB)).status,404);
+
    // The verified owner can generate beyond quantity and monetary caps.
    env.USER_DAILY_UNITS='1';env.GLOBAL_DAILY_UNITS='1';
    await call('admin/settings',{daily_usd:0,paused:false});
    await call('admin/account',{uid:'alice',status:'active',daily_usd:0});
    const video={requestId:crypto.randomUUID(),model:'Seedance 2.5',prompt:'A tree in the wind',ratio:'16:9',resolution:'720p',duration:4};
    assert.equal((await call('generate',video)).status,200);
-   assert.equal((await call('generate',video)).status,200);assert.equal(charges,4);
-   assert.equal((await call('generate',{...video,requestId:crypto.randomUUID()})).status,200);assert.equal(charges,5);
+   assert.equal((await call('generate',video)).status,200);assert.equal(charges,5);
+   assert.equal((await call('generate',{...video,requestId:crypto.randomUUID()})).status,200);assert.equal(charges,6);
    await call('admin/account',{uid:'bob',status:'active',daily_usd:10});
    assert.equal((await call('generate',{...video,requestId:crypto.randomUUID(),isAdmin:true},tokenB)).status,429);
    await call('admin/settings',{daily_usd:0,paused:true});
    assert.equal((await call('generate',{...video,requestId:crypto.randomUUID()})).status,429);
-   assert.equal(charges,5);
+   assert.equal(charges,6);
 
  }finally{globalThis.fetch=originalFetch;database.close();}
 });

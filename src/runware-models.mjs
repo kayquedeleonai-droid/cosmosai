@@ -64,7 +64,7 @@ export function collectReferences(node,edges,values){
 }
 export function safeMedia(value) {
   if(typeof value!=='string')return false;
-  try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(u.hostname==='im.runware.ai'||u.hostname==='vm.runware.ai'||u.hostname==='assets.runware.ai');}catch{return false;}
+  try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(u.hostname==='im.runware.ai'||u.hostname==='vm.runware.ai'||u.hostname==='assets.runware.ai'||u.hostname==='mm.runware.ai'||u.hostname==='ai-statics.freepik.com'||u.hostname==='ai-statics.magnific.com');}catch{return false;}
 }
 export function validReference(value) {return typeof value==='string'&&(safeMedia(value)||/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value))&&value.length<=2100000;}
 export function buildTask(input,taskUUID) {
@@ -77,7 +77,14 @@ export function buildTask(input,taskUUID) {
   if(!size)throw new Error('Resolução não suportada para este modelo e proporção.');
   if(input.references!=null&&input.reference!=null)throw new Error('Envie reference ou references, não ambos.');
   const references=input.references??(input.reference!=null?[input.reference]:[]);
-  if(!Array.isArray(references)||references.length>referenceLimit(model)||references.some(r=>!validReference(r)))throw new Error('Imagens de referência inválidas ou acima do limite do modelo.');
+  const referenceMode=input.referenceMode===true;
+  const seedance=['bytedance:seedance@2.0','bytedance:seedance@2.5'].includes(model.id);
+  const referenceVideos=input.referenceVideos??[];
+  if(!Array.isArray(referenceVideos)||referenceVideos.some(r=>!safeMedia(r))||referenceVideos.length>(model.id==='bytedance:seedance@2.5'?10:3)||referenceVideos.length&&(!seedance||!referenceMode))throw new Error('Vídeos de referência inválidos ou não suportados pelo modelo.');
+  if(referenceMode&&!seedance)throw new Error('Referências multimodais exigem Seedance 2.0 ou 2.5.');
+  if(referenceMode&&!['480p','720p'].includes(resolution))throw new Error('Use 480p ou 720p para gerar Seedance com menções de referência.');
+  if(!Array.isArray(references)||references.length>(referenceMode?(model.id==='bytedance:seedance@2.5'?30:9):referenceLimit(model))||references.some(r=>!validReference(r)))throw new Error('Imagens de referência inválidas ou acima do limite do modelo.');
+  if(referenceMode&&!references.length&&!referenceVideos.length)throw new Error('Adicione uma referência para este modo.');
   if(references.reduce((sum,r)=>sum+r.length,0)>32000000)throw new Error('Referências excedem o limite total de 32 MB.');
   const video=model.kind==='video';
   const task={taskType:video?'videoInference':'imageInference',taskUUID,model:model.id,positivePrompt:input.prompt.trim(),numberResults:1,outputType:'URL',outputFormat:video?'MP4':'PNG',deliveryMethod:'async',includeCost:true};
@@ -87,7 +94,8 @@ export function buildTask(input,taskUUID) {
     if(!durationOptions(model).includes(String(duration)))throw new Error('Duração não suportada por este modelo.');
     if(model.id==='klingai:kling-video@3.0-turbo'&&references.length&&input.prompt.length>2500)throw new Error('Kling com imagem aceita prompts de até 2500 caracteres.');
     task.duration=duration;
-    if(references.length){task.inputs={frameImages:references};task.resolution=model.id==='bytedance:seedance@2.0'&&resolution==='4K'?'4k':resolution;}
+    if(referenceMode){task.inputs={...(references.length?{referenceImages:references}:{}),...(referenceVideos.length?{referenceVideos}:{})};task.resolution=resolution;}
+    else if(references.length){task.inputs={frameImages:references};task.resolution=model.id==='bytedance:seedance@2.0'&&resolution==='4K'?'4k':resolution;}
     else {task.width=size[0];task.height=size[1];}
   }else {task.width=size[0];task.height=size[1];if(references.length)task.inputs={referenceImages:references};}
   return task;

@@ -82,22 +82,22 @@
 .node-settings button{font-size:10px;color:#09bed5;padding:7px 0}.node-settings button:disabled{opacity:.4}
 @media(prefers-reduced-motion:reduce){.node-generate .node-preview,.node-video .node-preview{transition:none}}
 /* Media fills the card; compact controls float above it only during interaction. */
-:is(.node-generate,.node-video)>.react-flow__handle{z-index:12}
-:is(.node-generate,.node-video)>.reference-add{z-index:12}
-:is(.node-generate,.node-video)>.node-preview{border-radius:12px;isolation:isolate}
-:is(.node-generate,.node-video)>.node-controls{position:absolute;left:0;right:0;bottom:0;z-index:8;height:39px;padding:9px 7px 6px;gap:4px;background:linear-gradient(transparent,rgba(8,10,12,.85));opacity:0;pointer-events:none;transition:opacity .14s ease}
-:is(.node-generate,.node-video):is(:hover,:focus-within,:has(.node-settings[open]))>.node-controls{opacity:1;pointer-events:auto}
-:is(.node-generate,.node-video)>.node-controls>select{height:22px;min-height:22px;width:48px;border-radius:11px;font-size:8px;background:#242428db}
-:is(.node-generate,.node-video)>.node-controls>.model-select{flex:0 1 104px;width:104px;min-width:70px}
-:is(.node-generate,.node-video)>.node-controls>.node-play{width:24px;height:24px;min-width:24px}
-:is(.node-generate,.node-video)>.node-controls .node-settings summary{padding:4px}
-:is(.node-generate,.node-video)>.generation-status{position:absolute;top:100%;left:0;right:0;background:#252027f2;border:1px solid #493341;border-radius:7px;margin-top:6px}
+:is(.node-generate,.node-video,.node-upscale)>.react-flow__handle{z-index:12}
+:is(.node-generate,.node-video,.node-upscale)>.reference-add{z-index:12}
+:is(.node-generate,.node-video,.node-upscale)>.node-preview{border-radius:12px;isolation:isolate}
+:is(.node-generate,.node-video,.node-upscale)>.node-controls{position:absolute;left:0;right:0;bottom:0;z-index:8;height:39px;padding:9px 7px 6px;gap:4px;background:linear-gradient(transparent,rgba(8,10,12,.85));opacity:0;pointer-events:none;transition:opacity .14s ease}
+:is(.node-generate,.node-video,.node-upscale):is(:hover,:focus-within,:has(.node-settings[open]))>.node-controls{opacity:1;pointer-events:auto}
+:is(.node-generate,.node-video,.node-upscale)>.node-controls>select{height:22px;min-height:22px;width:48px;border-radius:11px;font-size:8px;background:#242428db}
+:is(.node-generate,.node-video,.node-upscale)>.node-controls>.model-select{flex:0 1 104px;width:104px;min-width:70px}
+:is(.node-generate,.node-video,.node-upscale)>.node-controls>.node-play{width:24px;height:24px;min-width:24px}
+:is(.node-generate,.node-video,.node-upscale)>.node-controls .node-settings summary{padding:4px}
+:is(.node-generate,.node-video,.node-upscale)>.generation-status{position:absolute;top:100%;left:0;right:0;background:#252027f2;border:1px solid #493341;border-radius:7px;margin-top:6px}
 
-@media(hover:none),(pointer:coarse){:is(.node-generate,.node-video)>.node-controls{opacity:1;pointer-events:auto}:is(.node-generate,.node-video)>.node-controls>select{height:32px;min-height:32px}}
-@media(prefers-reduced-motion:reduce){:is(.node-generate,.node-video)>.node-controls{transition:none}}
+@media(hover:none),(pointer:coarse){:is(.node-generate,.node-video,.node-upscale)>.node-controls{opacity:1;pointer-events:auto}:is(.node-generate,.node-video,.node-upscale)>.node-controls>select{height:32px;min-height:32px}}
+@media(prefers-reduced-motion:reduce){:is(.node-generate,.node-video,.node-upscale)>.node-controls{transition:none}}
 
-:is(.node-generate,.node-video)>.node-controls>.node-download{padding:4px}
-:is(.node-generate,.node-video)>.node-controls svg{width:12px;height:12px}
+:is(.node-generate,.node-video,.node-upscale)>.node-controls>.node-download{padding:4px}
+:is(.node-generate,.node-video,.node-upscale)>.node-controls svg{width:12px;height:12px}
 .video-preview-player{width:100%;height:100%;position:relative}
 .video-preview-player video{display:block}
 .video-playback{position:absolute;top:12px;left:12px;opacity:0;pointer-events:none;transition:opacity .14s}
@@ -165,3 +165,11 @@
 .editor-actions .save-status{flex:0 0 140px;width:140px;min-width:140px;max-width:140px}
 .editor-actions .save-status>svg{width:13px;height:13px;flex:0 0 13px}
 .editor-actions .save-status>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.image-name{width:170px;max-width:220px;padding:0;border:0;border-bottom:1px solid transparent;background:transparent;color:inherit;font:inherit;text-overflow:ellipsis}.image-name:hover{border-bottom-color:#ffffff30}.image-name:focus{border-bottom-color:#08b5ce}.image-mentions{position:fixed;z-index:1200;width:280px;max-height:320px;overflow:auto;padding:7px;border:1px solid #ffffff20;border-radius:12px;background:#1b1e25f5;box-shadow:0 12px 35px #0008;backdrop-filter:blur(12px)}.image-mentions>small{display:block;font-size:10px;color:#8b9da9;padding:6px}.image-mentions button{display:flex;width:100%;padding:7px;justify-content:flex-start;border-radius:7px;font-size:12px;text-align:left}.image-mentions button[aria-selected=true],.image-mentions button:hover{background:#06bdd51c;color:#63dceb}.image-mentions img{width:32px;height:32px;object-fit:cover;border-radius:5px;flex-shrink:0}.image-mentions button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.image-mentions p{font-size:11px;padding:8px;margin:0}
+.load-media{padding:18px;display:grid;justify-items:center;gap:9px}.load-media button{font-size:12px;color:#5edce9}.load-media small{font-size:9px;color:#858995}.loaded-preview{height:220px;overflow:hidden;border-radius:12px}.loaded-preview>img{width:100%;height:100%;object-fit:contain}.node-loadvideo{width:360px}.image-mentions video{width:48px;height:32px;object-fit:cover;border-radius:5px;flex-shrink:0}.node-title small{max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.mode-pan .react-flow__pane{cursor:url('/pan-cursor.svg') 12 12,grab}
+.mode-pan .react-flow__pane.dragging{cursor:url('/pan-cursor.svg') 12 12,grabbing}
+.knife-overlay{cursor:url('/knife-cursor.svg') 20 4,crosshair}
+
+.node-settings textarea{width:100%;min-height:70px;resize:vertical;background:#222329;color:#eee;border:1px solid #414149;border-radius:6px;padding:8px}.node-settings input[type=range]{width:100%;accent-color:#06bdd5}
+.node-upscale .node-settings>div{left:0;right:auto;max-height:390px;overflow:auto;scrollbar-width:thin}.node-upscale .react-flow__handle{z-index:10}

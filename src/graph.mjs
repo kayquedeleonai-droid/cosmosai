@@ -1,11 +1,12 @@
 import {safeMedia,referenceIndex,referenceSlots} from './runware-models.mjs';
 export const catalog = {
+  loadvideo: { label: 'Carregar vídeo', category: 'ENTRADA', color: '#a98bfa', input: null, output: 'video', description: 'Traga um vídeo do seu computador.' },
   compare: { label: 'Comparar', category: 'UTILITÁRIO', color: '#06bdd5', input: 'image', output: 'image', description: 'Compare duas imagens sem consumir créditos.' },
   prompt: { label: 'Prompt', category: 'ENTRADA', color: '#c0a1ff', input: null, output: 'text', description: 'Transforme uma ideia em direção criativa.' },
   image: { label: 'Imagem', category: 'ENTRADA', color: '#80c5a8', input: null, output: 'image', description: 'Traga uma referência do seu computador.' },
   generate: { label: 'Gerar imagem', category: 'MODELO', color: '#ffb627', input: 'text', output: 'image', description: 'Explore imagens a partir de um prompt.' },
   video: { label: 'Gerar vídeo', category: 'MODELO', color: '#00bcd4', input: 'text', output: 'video', description: 'Gere vídeos com Seedance ou VEO via Runware.' },
-  upscale: { label: 'Upscale', category: 'MODELO', color: '#f0bd83', input: 'image', output: 'image', description: 'Uma etapa preparada para ampliar detalhes.' },
+  upscale: { label: 'Upscale', category: 'MODELO', color: '#f0bd83', input: 'image', output: 'image', description: 'Amplie imagens com Magnific Creative.' },
   output: { label: 'Resultado', category: 'SAÍDA', color: '#8ab9ec', input: 'image', output: null, description: 'Visualize e baixe o resultado do fluxo.' },
 };
 export function orderGraph(nodes, edges) {
@@ -43,6 +44,7 @@ export function validateProject(value) {
     if (typeof n.id !== 'string' || !Object.hasOwn(catalog,n.data?.kind) || !Number.isFinite(n.position?.x) || !Number.isFinite(n.position?.y)) throw new Error('Node inválido.');
     if(n.data.referenceSlots!=null&&(typeof n.data.referenceSlots!=='string'||!/^([1-9]|1[0-6])$/.test(n.data.referenceSlots)||Number(n.data.referenceSlots)>referenceSlots(n.data)))throw new Error('Quantidade de referências inválida.');
     if (n.data.prompt != null && typeof n.data.prompt !== 'string') throw new Error('Prompt inválido.');
+    if(n.data.imageName!=null&&(typeof n.data.imageName!=='string'||n.data.imageName.length>60||/[\[\]\n@]/.test(n.data.imageName)))throw new Error('Nome de imagem inválido.');
     if (n.data.model != null && (typeof n.data.model !== 'string' || n.data.model.length > 80)) throw new Error('Modelo inválido.');
     if (n.data.ratio != null && !['1:1','16:9','9:16'].includes(n.data.ratio)) throw new Error('Proporção inválida.');
     if(n.data.compareMode!=null&&!['wipe','side','overlay'].includes(n.data.compareMode))throw new Error('Modo de comparação inválido.');
