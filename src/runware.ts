@@ -8,6 +8,7 @@ export async function requestGeneration(path:string,payload:Record<string,unknow
   const response=await fetch(`${import.meta.env.VITE_RUNWARE_API_URL.replace(/\/$/,'')}/${path}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(35000)]):AbortSignal.timeout(35000)});
   const body=await response.json();
   if(!response.ok){const error=new Error(body.error||'Não foi possível acessar a Runware.');Object.assign(error,{notSubmitted:[400,401,403,404,413,429,503].includes(response.status)});throw error;}
+  if(path==='generate'||(path==='status'&&body.state!=='processing'))window.dispatchEvent(new Event('cosmos:generation-finished'));
   return body;
 }
 export async function waitGeneration(requestId:string,signal:AbortSignal,onProgress:()=>void){
