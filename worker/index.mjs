@@ -1,4 +1,4 @@
-import {magnificModel,magnificTask} from '../src/magnific.mjs';
+import {isMagnificModel,magnificTask} from '../src/magnific.mjs';
 import {createMagnific,pollMagnific} from './magnific.mjs';
 import {buildTask,readResult} from '../src/runware-models.mjs';
 import {estimateCost} from '../src/pricing.mjs';
@@ -76,7 +76,7 @@ export default {
    if(!uuid.test(input.requestId))return reply({error:'Identificador inválido.'},400);
    let job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();
    if(job&&job.uid!==uid)return reply({error:'Geração não encontrada.'},404);
-   const isMagnific=(job?.model||input.model)===magnificModel;
+   const isMagnific=isMagnificModel(job?.model||input.model);
    if(isMagnific&&!isAdmin)return reply({error:'O Magnific está disponível para a conta proprietária.'},403);
    if(!(isMagnific?env.MAGNIFIC_API_KEY:env.RUNWARE_API_KEY))return reply({error:'Provedor não configurado.'},503);
    if(path==='/generate'){
@@ -96,7 +96,7 @@ export default {
      if(!reservation.meta.changes){job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();if(!job)return reply({error:'Geração pausada ou limite diário atingido (orçamento ou quantidade). Consulte o administrador. Limites renovam às 00h UTC.'},429);if(job.uid!==uid||job.signature!==signature)return reply({error:'Identificador já utilizado.'},409);}
      else{
       let result;try{
-       if(isMagnific){const submitted=await createMagnific(task,env.MAGNIFIC_API_KEY);
+       if(isMagnific){const submitted=await createMagnific(task,env.MAGNIFIC_API_KEY,input.model);
         if(submitted.providerTaskId)await env.DB.prepare('UPDATE jobs SET metadata=? WHERE id=?').bind(JSON.stringify({...JSON.parse(metadata),providerTaskId:submitted.providerTaskId,provider:'magnific'}),input.requestId).run();
         result=submitted.result||{state:'processing',message:'Envio Magnific sem confirmação. Consulte a pendência; não reenvie.'};
        }else result=await callRunware(task,env.RUNWARE_API_KEY);
@@ -119,7 +119,7 @@ async function callRunware(task,key){
 async function pollJob(env,job){
  const locked=await env.DB.prepare('UPDATE jobs SET polled=? WHERE id=? AND polled<? AND state=?').bind(Date.now(),job.id,Date.now()-4500,'processing').run();
  if(!locked.meta.changes)return {state:'processing'};
- const result=job.model===magnificModel?await pollMagnific(job,env.MAGNIFIC_API_KEY):await callRunware({taskType:'getResponse',taskUUID:job.id},env.RUNWARE_API_KEY);await saveResult(env,job.id,result);return result;
+ const result=isMagnificModel(job.model)?await pollMagnific(job,env.MAGNIFIC_API_KEY):await callRunware({taskType:'getResponse',taskUUID:job.id},env.RUNWARE_API_KEY);await saveResult(env,job.id,result);return result;
 }
 async function saveResult(env,id,result){
  if(result.state==='processing')return;

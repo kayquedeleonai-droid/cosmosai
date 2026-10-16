@@ -1,5 +1,6 @@
 import {safeMedia,referenceIndex,referenceSlots} from './runware-models.mjs';
 export const catalog = {
+  upscalevideo: {label:'Upscale Topaz',category:'MODELO',color:'#a98bfa',input:'video',output:'video',description:'Amplie vídeos com Topaz pela Magnific.'},
   loadvideo: { label: 'Carregar vídeo', category: 'ENTRADA', color: '#a98bfa', input: null, output: 'video', description: 'Traga um vídeo do seu computador.' },
   compare: { label: 'Comparar', category: 'UTILITÁRIO', color: '#06bdd5', input: 'image', output: 'image', description: 'Compare duas imagens sem consumir créditos.' },
   prompt: { label: 'Prompt', category: 'ENTRADA', color: '#c0a1ff', input: null, output: 'text', description: 'Transforme uma ideia em direção criativa.' },

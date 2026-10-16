@@ -1,11 +1,11 @@
 import {nodeImage} from './workflow-cover.mjs';
 import {safeMedia} from './runware-models.mjs';
 
-export const imageName=node=>node.data.imageName?.trim()||`${['video','loadvideo'].includes(node.data.kind)||node.data.mediaType==='video'?'Vídeo':'Imagem'} ${node.id.slice(0,8)}`;
+export const imageName=node=>node.data.imageName?.trim()||`${['video','loadvideo','upscalevideo'].includes(node.data.kind)||node.data.mediaType==='video'?'Vídeo':'Imagem'} ${node.id.slice(0,8)}`;
 export const mentionToken=name=>/^[\p{L}\p{N}_-]+$/u.test(name)?`@${name}`:`@[${name}]`;
 const tokens=()=>/(^|[\s(])(?:@\[([^\]\n]+)\]|@([\p{L}\p{N}_-]+))/gu;
 export const renameMention=(prompt,oldName,nextName)=>prompt.replace(tokens(),(token,prefix,bracket,simple)=>(bracket||simple)===oldName?prefix+mentionToken(nextName):token);
-export function imageChoices(nodes){return nodes.flatMap(node=>{const video=['video','loadvideo'].includes(node.data.kind)||node.data.mediaType==='video';const src=video?(safeMedia(node.data.result)?node.data.result:undefined):nodeImage(node);return src?[{id:node.id,name:imageName(node),src,video}]:[];});}
+export function imageChoices(nodes){return nodes.flatMap(node=>{const video=['video','loadvideo','upscalevideo'].includes(node.data.kind)||node.data.mediaType==='video';const src=video?(safeMedia(node.data.result)?node.data.result:undefined):nodeImage(node);return src?[{id:node.id,name:imageName(node),src,video}]:[];});}
 export function mentionQuery(text,caret){
  const match=/(?:^|\s)@([^\[\]@\s]*)$/.exec(text.slice(0,caret));
  return match?{start:caret-match[1].length-1,end:caret,query:match[1]}:null;
