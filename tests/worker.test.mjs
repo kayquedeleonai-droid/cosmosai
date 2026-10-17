@@ -93,6 +93,17 @@ test('authenticated backend enforces ownership, quotas and idempotency without r
    assert.equal((await call('generate',{...video,requestId:crypto.randomUUID()})).status,429);
    assert.equal(charges,6);
 
+   await call('admin/settings',{daily_usd:0,paused:false});
+   const previousFetch=globalThis.fetch;
+   globalThis.fetch=async(url,options)=>{if(String(url).startsWith('https://api.runware.ai'))throw new Error('Runware must not be called for migrated models');return previousFetch(url,options);};
+   delete env.RUNWARE_API_KEY;
+   for(const model of ['GPT Image 2.5 Flare','GPT Image 2.5 Sunburst','Seedream 5.0 Pro']){
+     const request={requestId:crypto.randomUUID(),model,prompt:'A blue vase',ratio:'1:1',resolution:'2K',references:['data:image/png;base64,AAAA']};
+     assert.equal((await (await call('generate',request)).json()).state,'processing');
+     assert.equal((await (await call('status',{requestId:request.requestId})).json()).state,'success');
+     assert.equal((await call('generate',request)).status,200);
+   }
+   assert.equal(charges,9);
  }finally{globalThis.fetch=originalFetch;database.close();}
 });
 

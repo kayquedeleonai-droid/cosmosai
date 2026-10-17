@@ -14,7 +14,7 @@ export function cleanProject(input: unknown): Project {
     const legacy=(['video','loadvideo','upscalevideo'].includes(original.data.kind)||original.data.mediaType==='video'?'Vídeo':'Imagem')+' '+original.id.slice(0,8);
     for(const n of named)if(n.data.kind==='prompt'&&n.data.prompt)n.data={...n.data,prompt:renameMention(n.data.prompt,legacy,next)};
   }
-  p.nodes=named;
+  p.nodes=named.map((n:FlowNode)=>n.data.model==='Seedream 5.0 Pro'&&!n.data.pendingTask&&!['1.5K','2K'].includes(n.data.resolution||'')?{...n,data:{...n.data,resolution:'2K'}}:n);
   return {
     version: 1,
     ...(validCover(p.coverImage)?{coverImage:p.coverImage}:{}),
@@ -26,7 +26,7 @@ export function cleanProject(input: unknown): Project {
     nodes: p.nodes.map((n: FlowNode) => ({
       id: n.id, type: 'studio', position: n.position,
       data: Object.fromEntries(Object.entries(n.data).filter(([key, value]) =>
-        ['psSlots','flavor','sharpen','smartGrain','ultraDetail','topazResolution','targetFps','interpolation','noise','upscaleFactor','upscaleStyle','creativity','hdr','resemblance','fractality','kind','imageName','videoInputMode','referenceSlots','prompt','image','result','model','ratio','quality','resolution','duration','mediaType','pendingTask','cost','generatedModel','generatedResolution','compareMode','compareSplit','compareOutput'].includes(key) && typeof value === 'string')),
+        ['reviewStatus','psSlots','flavor','sharpen','smartGrain','ultraDetail','topazResolution','targetFps','interpolation','noise','upscaleFactor','upscaleStyle','creativity','hdr','resemblance','fractality','kind','imageName','videoInputMode','referenceSlots','prompt','image','result','model','ratio','quality','resolution','duration','mediaType','pendingTask','cost','generatedModel','generatedResolution','compareMode','compareSplit','compareOutput'].includes(key) && typeof value === 'string')),
     })) as FlowNode[],
     edges: p.edges.map((e: Project['edges'][number]) => ({ id:e.id, source:e.source, target:e.target, ...(e.targetHandle?{targetHandle:e.targetHandle}:{}) })),
   };

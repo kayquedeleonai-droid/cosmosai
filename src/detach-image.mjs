@@ -5,8 +5,8 @@ export function detachImage(nodes,edges,id,newId){
  if(!original||!src||original.data.kind==='image'||original.data.pendingTask)throw new Error('Selecione uma imagem gerada e concluída para desanexar.');
  if(nodes.length>=100)throw new Error('Limite de 100 nodes por workflow.');
  const name=imageName(original);
- const data={...original.data};delete data.result;delete data.image;delete data.status;delete data.cost;delete data.generatedModel;delete data.generatedResolution;
+ const data={...original.data};delete data.result;delete data.image;delete data.status;delete data.reviewStatus;delete data.cost;delete data.generatedModel;delete data.generatedResolution;
  data.imageName=`Gerador ${id.slice(0,8)}`;
- const detached={id:newId,type:'studio',position:{x:original.position.x+480,y:original.position.y},selected:true,data:{kind:'image',result:src,mediaType:'image',imageName:name}};
+ const detached={id:newId,type:'studio',position:{x:original.position.x+480,y:original.position.y},selected:true,data:{kind:'image',result:src,mediaType:'image',imageName:name,...(original.data.reviewStatus?{reviewStatus:original.data.reviewStatus}:{})}};
  return {nodes:[...nodes.map(n=>n.id===id?{...n,selected:false,data}:{...n,selected:false}),detached],edges:edges.map(e=>e.source===id?{...e,source:newId}:e)};
 }

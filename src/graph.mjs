@@ -1,3 +1,4 @@
+import {reviewStatuses} from './review-status.mjs';
 import {isLocalMedia} from './local-media.mjs';
 import {safeMedia,referenceIndex,referenceSlots} from './runware-models.mjs';
 export const catalog = {
@@ -50,6 +51,7 @@ export function validateProject(value) {
   if (!value || value.version !== 1 || typeof value.name !== 'string' || value.name.length > 120 || !Array.isArray(value.nodes) || !Array.isArray(value.edges) || value.nodes.length > 100 || value.edges.length > 200) throw new Error('Arquivo de projeto inválido.');
   for (const n of value.nodes) {
     if (typeof n.id !== 'string' || !Object.hasOwn(catalog,n.data?.kind) || !Number.isFinite(n.position?.x) || !Number.isFinite(n.position?.y)) throw new Error('Node inválido.');
+    if(n.data.reviewStatus!=null&&!reviewStatuses.some(s=>s.value===n.data.reviewStatus))throw new Error('Status de revisão inválido.');
     if(n.data.videoInputMode!=null&&(n.data.kind!=='video'||!['frames','references'].includes(n.data.videoInputMode)))throw new Error('Modo de entrada inválido.');
     if(n.data.referenceSlots!=null&&(typeof n.data.referenceSlots!=='string'||!/^([1-9]|[12][0-9]|30)$/.test(n.data.referenceSlots)||Number(n.data.referenceSlots)>referenceSlots(n.data)))throw new Error('Quantidade de referências inválida.');
     if(n.data.psSlots!=null&&(typeof n.data.psSlots!=='string'||!/^([1-9]|1[0-6])$/.test(n.data.psSlots)))throw new Error('Quantidade de camadas inválida.');
@@ -63,7 +65,7 @@ export function validateProject(value) {
     if (n.data.result != null && (typeof n.data.result !== 'string' || (n.data.result !== '/demo-landscape.svg' && !safeMedia(n.data.result) && !isLocalMedia(n.data.result) && !/^data:image\/(png|jpeg|webp);base64,/.test(n.data.result)))) throw new Error('Resultado inválido.');
     if(n.data.pendingTask!=null&&!/^[0-9a-f-]{36}$/i.test(n.data.pendingTask))throw new Error('Geração pendente inválida.');
     if(n.data.quality!=null&&!['auto','low','medium','high','xhigh','max'].includes(n.data.quality))throw new Error('Qualidade inválida.');
-    if(n.data.resolution!=null&&!['480p','720p','768p','1080p','1440p','1K','2K','4K'].includes(n.data.resolution))throw new Error('Resolução inválida.');
+    if(n.data.resolution!=null&&!['480p','720p','768p','1080p','1440p','1K','1.5K','2K','4K'].includes(n.data.resolution))throw new Error('Resolução inválida.');
     if(n.data.duration!=null&&!Array.from({length:13},(_,i)=>String(i+3)).includes(n.data.duration))throw new Error('Duração inválida.');
     if(n.data.mediaType!=null&&!['image','video'].includes(n.data.mediaType))throw new Error('Tipo de mídia inválido.');
     if (n.data.image != null && (typeof n.data.image !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(n.data.image))) throw new Error('Imagem inválida.');

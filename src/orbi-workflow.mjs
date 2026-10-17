@@ -1,5 +1,6 @@
+import {generationResolutions as availableResolutions,generationSwitch as switchModel} from './magnific-generation.mjs';
 import {catalog,validConnection,validateProject} from './graph.mjs';
-import {models,findModel,switchModel,availableResolutions,durationOptions,qualityOptions,videoReferenceLimit,switchVideoInputMode,referenceLimit,referenceIndex} from './runware-models.mjs';
+import {models,findModel,durationOptions,qualityOptions,videoReferenceLimit,switchVideoInputMode,referenceLimit,referenceIndex} from './runware-models.mjs';
 import {nameMediaNodes,imageName,renameMention} from './image-mentions.mjs';
 const keys=['videoInputMode','model','prompt','imageName','ratio','resolution','quality','duration'];
 export const actionSchema={type:'object',additionalProperties:false,properties:{type:{type:'string',enum:['create','update','move','connect']},id:{type:'string'},kind:{type:'string'},settings:{type:'array',items:{type:'object',additionalProperties:false,properties:{key:{type:'string',enum:keys},value:{type:'string'}},required:['key','value']}},x:{type:'number'},y:{type:'number'},source:{type:'string'},target:{type:'string'},port:{type:'string'}},required:['type','id','kind','settings','x','y','source','target','port']};

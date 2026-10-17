@@ -1,8 +1,9 @@
+import {isMagnificGeneration} from './magnific-generation.mjs';
 import {safeMedia} from './runware-models.mjs';
 export const magnificModel='Magnific Creative';
 export const precisionModel='Magnific Precision V2';
 export const topazModels=['Topaz Starlight Precise 2.5','Topaz Starlight Fast 2'];
-export const isMagnificModel=model=>[magnificModel,precisionModel,...topazModels].includes(model);
+export const isMagnificModel=model=>isMagnificGeneration(model)||[magnificModel,precisionModel,...topazModels].includes(model);
 export const isUpscale=kind=>kind==='upscale'||kind==='upscalevideo';
 export const upscaleModel=data=>data.model||(data.kind==='upscalevideo'?topazModels[0]:magnificModel);
 export function magnificEndpoint(model){if(model===precisionModel)return 'image-upscaler-precision-v2';if(topazModels.includes(model))return 'video-upscaler-topaz';if(!model||model===magnificModel)return 'image-upscaler';throw new Error('Modelo de upscale inválido.');}

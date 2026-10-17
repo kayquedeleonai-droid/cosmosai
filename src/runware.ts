@@ -1,3 +1,4 @@
+import {isMagnificGeneration} from './magnific-generation.mjs';
 import {isLocalMedia,localMediaData} from './local-media.mjs';
 import {auth} from './firebase';
 export const runwareConfigured=Boolean(import.meta.env.VITE_RUNWARE_API_URL);
@@ -13,6 +14,7 @@ export async function requestGeneration(path:string,payload:Record<string,unknow
       if(!isLocalMedia(src))return src;
       if(uploads.has(src))return uploads.get(src)!;
       const media=await localMediaData(src);
+      if(isMagnificGeneration(payload.model)){uploads.set(src,media);return media;}
       const result=await requestGeneration('media-upload',{media},signal);
       if(!result.url)throw new Error('Não foi possível preparar a referência local.');
       uploads.set(src,result.url);return result.url;

@@ -6,6 +6,7 @@ export type NodeData = {
   kind: Kind;
   prompt?: string;
   imageName?: string;
+  reviewStatus?: string;
   referenceSlots?: string;
   videoInputMode?: string;
   image?: string;

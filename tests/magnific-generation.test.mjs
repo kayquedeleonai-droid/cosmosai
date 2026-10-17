@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {magnificGenerationTask,generationEndpoint,jobUsesMagnific} from '../src/magnific-generation.mjs';
+import {createMagnific,pollMagnific} from '../worker/magnific.mjs';
+test('generation payloads keep model variants, reference order and provider resolution limits',()=>{
+ const input={model:'GPT Image 2.5 Sunburst',prompt:'A vase',resolution:'4K',ratio:'16:9',quality:'max',references:['data:image/png;base64,AAAA','https://im.runware.ai/ref.png']};
+ const task=magnificGenerationTask(input);
+ assert.equal(task.variant,'sunburst');assert.equal(task.quality,'max');assert.equal(task.num_images,1);
+ assert.deepEqual(task.reference_images,['AAAA','https://im.runware.ai/ref.png']);
+ assert.equal(magnificGenerationTask({...input,model:'GPT Image 2.5 Flare'}).variant,'flare');
+ assert.throws(()=>magnificGenerationTask({...input,model:'Seedream 5.0 Pro'}),/1.5K/);
+ assert.equal(magnificGenerationTask({...input,model:'Seedream 5.0 Pro',resolution:'1.5K'}).resolution,'1.5k');
+ assert.equal(generationEndpoint(input.model,true),'text-to-image/gpt-image-2-5-edit');
+});
+test('old Runware tasks keep their provider after model migration',()=>{
+ assert.equal(jobUsesMagnific({model:'GPT Image 2.5 Flare',metadata:'{}'}),false);
+ assert.equal(jobUsesMagnific({model:'Seedream 5.0 Pro',metadata:'{"provider":"magnific"}'}),true);
+ assert.equal(jobUsesMagnific({model:'Magnific Creative',metadata:'{}'}),true);
+});
+test('Magnific generation and edit polling use the same endpoint without uploads or fallback',async()=>{
+ const original=globalThis.fetch,calls=[];
+ globalThis.fetch=async(url,options)=>{calls.push({url,options});return Response.json({data:{task_id:'task-id',status:'IN_PROGRESS'}});};
+ try{
+ const model='GPT Image 2.5 Flare',task=magnificGenerationTask({model,prompt:'Edit',references:['data:image/png;base64,AAAA']});
+ await createMagnific(task,'test-key',model);
+ await pollMagnific({model,metadata:JSON.stringify({providerTaskId:'task-id',hasReference:true})},'test-key');
+ assert.equal(calls.length,2);
+ assert.equal(calls[0].url,'https://api.magnific.com/v1/ai/text-to-image/gpt-image-2-5-edit');
+ assert.equal(calls[1].url,calls[0].url+'/task-id');
+ assert.deepEqual(JSON.parse(calls[0].options.body).reference_images,['AAAA']);
+ }finally{globalThis.fetch=original;}
+});

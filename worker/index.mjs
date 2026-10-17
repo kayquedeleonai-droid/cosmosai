@@ -1,3 +1,4 @@
+import {isMagnificGeneration,magnificGenerationTask,jobUsesMagnific} from '../src/magnific-generation.mjs';
 import {assistantInput,converse} from './assistant.mjs';
 import {isMagnificModel,magnificTask} from '../src/magnific.mjs';
 import {createMagnific,pollMagnific} from './magnific.mjs';
@@ -91,17 +92,17 @@ export default {
    if(!uuid.test(input.requestId))return reply({error:'Identificador inválido.'},400);
    let job=await env.DB.prepare('SELECT * FROM jobs WHERE id=?').bind(input.requestId).first();
    if(job&&job.uid!==uid)return reply({error:'Geração não encontrada.'},404);
-   const isMagnific=isMagnificModel(job?.model||input.model);
+   const isMagnific=job?jobUsesMagnific(job):isMagnificModel(input.model);
    if(isMagnific&&!isAdmin)return reply({error:'O Magnific está disponível para a conta proprietária.'},403);
    if(!(isMagnific?env.MAGNIFIC_API_KEY:env.RUNWARE_API_KEY))return reply({error:'Provedor não configurado.'},503);
    if(path==='/generate'){
     if(!identity.verified||(!isAdmin&&account.status!=='active'))return reply({error:!identity.verified?'Verifique seu e-mail para gerar.':account.status==='blocked'?'Gerações bloqueadas pelo administrador.':'Sua conta aguarda aprovação do administrador.'},403);
-    let task,quote;try{task=isMagnific?magnificTask(input):buildTask(input,input.requestId);quote=isMagnific?{usd:null,reserve:0}:estimateCost(input);}catch(e){return reply({error:e.message},400);}
+    let task,quote;try{task=isMagnific?(isMagnificGeneration(input.model)?magnificGenerationTask(input):magnificTask(input)):buildTask(input,input.requestId);quote=isMagnific?{usd:null,reserve:0}:estimateCost(input);}catch(e){return reply({error:e.message},400);}
     const signature=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(task)))),b=>b.toString(16).padStart(2,'0')).join('');
     if(job&&job.signature!==signature)return reply({error:'Este identificador já pertence a outra geração.'},409);
     if(!job){
      const units=task.taskType==='videoInference'?10:1,now=Date.now(),today=day();
-     const metadata=JSON.stringify({prompt:input.prompt,ratio:input.ratio,resolution:input.resolution,quality:input.quality,duration:input.duration,hasReference:!!input.reference||!!input.references?.length,estimated:quote.usd});
+     const metadata=JSON.stringify({provider:isMagnific?'magnific':'runware',prompt:input.prompt,ratio:input.ratio,resolution:input.resolution,quality:input.quality,duration:input.duration,hasReference:!!input.reference||!!input.references?.length,estimated:quote.usd});
      const reservation=await env.DB.prepare(`INSERT OR IGNORE INTO jobs(id,uid,day,units,signature,created,reserved,model,metadata,projectId,nodeId) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE
       (SELECT paused FROM settings WHERE id=1)=0 AND (SELECT status FROM accounts WHERE uid=?)='active' AND (?=1 OR (
       (SELECT COALESCE(SUM(units),0) FROM jobs WHERE day=? AND uid=?)+?<=? AND
@@ -134,7 +135,7 @@ async function callRunware(task,key){
 async function pollJob(env,job){
  const locked=await env.DB.prepare('UPDATE jobs SET polled=? WHERE id=? AND polled<? AND state=?').bind(Date.now(),job.id,Date.now()-4500,'processing').run();
  if(!locked.meta.changes)return {state:'processing'};
- const result=isMagnificModel(job.model)?await pollMagnific(job,env.MAGNIFIC_API_KEY):await callRunware({taskType:'getResponse',taskUUID:job.id},env.RUNWARE_API_KEY);await saveResult(env,job.id,result);return result;
+ const result=jobUsesMagnific(job)?await pollMagnific(job,env.MAGNIFIC_API_KEY):await callRunware({taskType:'getResponse',taskUUID:job.id},env.RUNWARE_API_KEY);await saveResult(env,job.id,result);return result;
 }
 async function saveResult(env,id,result){
  if(result.state==='processing')return;
