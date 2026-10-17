@@ -6,7 +6,7 @@ export function readMagnific(body,model){
  const data=body?.data;
  if(['FAILED','ERROR','CANCELLED'].includes(data?.status)){
   const raw=[data.error?.message,data.error?.detail,data.error,data.message,data.error_message,body?.message].find(value=>typeof value==='string'&&value.trim());
-  const detail=raw?.replace(/https?:\/\/\S+/g,'[endereço omitido]').slice(0,400);
+  const detail=raw?.replace(/[A-Za-z0-9+/=]{80,}/g,'[imagem omitida]').replace(/https?:\/\/\S+/g,'[endereço omitido]').slice(0,400);
   return {state:'error',error:detail?'Magnific: '+detail:'Magnific marcou a geração como '+data.status+' e não informou o motivo. Consulte o histórico da Magnific antes de gerar novamente.',providerStatus:data.status,...(typeof data.error?.code==='string'?{providerCode:data.error.code.slice(0,80)}:{}),...(!detail?{providerFields:Object.keys(data).slice(0,20)}:{})};
  }
  if(data?.status==='COMPLETED'){

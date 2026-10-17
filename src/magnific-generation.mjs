@@ -15,7 +15,7 @@ export function magnificGenerationTask(input){
  if(!ratios[ratio]||!generationResolutions(findModel(input.model),ratio).includes(resolution))throw new Error(seedream?'Seedream no Magnific aceita 1.5K ou 2K. Selecione a resolução.':'Resolução ou proporção inválida.');
  const quality=!input.quality||input.quality==='auto'?'medium':input.quality;
  if(!seedream&&!['low','medium','high','xhigh','max'].includes(quality))throw new Error('Qualidade inválida.');
- return {prompt:input.prompt,resolution:resolution.toLowerCase(),aspect_ratio:ratios[ratio],...(!seedream?{variant:findModel(input.model).label.includes('Sunburst')?'sunburst':'flare',quality,num_images:1,output_format:'png'}:{}),...(refs.length?{reference_images:refs.map(r=>r.startsWith('data:')?r.split(',')[1]:r)}:{})};
+ return {prompt:input.prompt,resolution:resolution.toLowerCase(),aspect_ratio:ratios[ratio],...(!seedream?{variant:findModel(input.model).label.includes('Sunburst')?'sunburst':'flare',quality,num_images:1,output_format:'png'}:{}),...(refs.length?{reference_images:refs.map(r=>!seedream&&r.startsWith('data:')?r.split(',')[1]:r)}:{})};
 }
 export function generationTask(input,id){return isMagnificGeneration(input.model)?magnificGenerationTask(input):buildTask(input,id);}
 export function generationEndpoint(model,edit=false){if(!isMagnificGeneration(model))throw new Error('Modelo inválido.');return 'text-to-image/'+(isSeedream(model)?'seedream-v5-pro':'gpt-image-2-5')+(edit?'-edit':'');}

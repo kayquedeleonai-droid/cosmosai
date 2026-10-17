@@ -29,6 +29,24 @@ test('generation payloads keep model variants, reference order and provider reso
  assert.equal(magnificGenerationTask({...input,model:'Seedream 5.0 Pro',resolution:'1.5K'}).resolution,'1.5k');
  assert.equal(generationEndpoint(input.model,true),'text-to-image/gpt-image-2-5-edit');
 });
+
+test('Seedream edit keeps the data URI prefix while GPT accepts raw base64',async()=>{
+ const reference='data:image/png;base64,AAAA';
+ const input={model:'Seedream 5.0 Pro',prompt:'Edit the image',references:[reference,'https://cdn-magnific.freepik.com/ref.png'],resolution:'2K'};
+ const task=magnificGenerationTask(input);
+ assert.deepEqual(task.reference_images,input.references);
+ const original=globalThis.fetch;
+ try{
+  globalThis.fetch=async(url,options)=>{
+   assert.equal(url,'https://api.magnific.com/v1/ai/text-to-image/seedream-v5-pro-edit');
+   assert.equal(JSON.parse(options.body).reference_images[0],reference);
+   return Response.json({data:{task_id:'test-task',status:'IN_PROGRESS'}});
+  };
+  await createMagnific(task,'test-key',input.model);
+ }finally{globalThis.fetch=original;}
+ assert.equal(magnificGenerationTask({...input,model:'GPT Image 2.5 Sunburst'}).reference_images[0],'AAAA');
+ assert.equal(readMagnific({data:{status:'FAILED',message:'invalid url '+ 'A'.repeat(100)}}).error.includes('A'.repeat(80)),false);
+});
 test('old Runware tasks keep their provider after model migration',()=>{
  assert.equal(jobUsesMagnific({model:'GPT Image 2.5 Flare',metadata:'{}'}),false);
  assert.equal(jobUsesMagnific({model:'Seedream 5.0 Pro',metadata:'{"provider":"magnific"}'}),true);
