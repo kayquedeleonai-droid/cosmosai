@@ -37,6 +37,7 @@ export type Project = {
   id: string;
   name: string;
   folder?: string;
+  subfolder?: string;
   updatedAt: number;
   nodes: FlowNode[];
   edges: Edge[];

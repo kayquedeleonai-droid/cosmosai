@@ -65,15 +65,21 @@ export async function listCloud() {
   });
 }
 
-export async function saveCollection(name:string){
+export async function saveCollection(name:string,parent=''){
  if(!db||!auth?.currentUser)throw new Error('Entre para salvar o projeto na nuvem.');
  const uid=auth.currentUser.uid;
  name=name.trim();if(!name||name.length>60)throw new Error('Nome de projeto inválido.');
- const id=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(name))),b=>b.toString(16).padStart(2,'0')).join('');
+ if(parent.length>60)throw new Error('Projeto inválido.');
+ const id=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(parent?JSON.stringify([parent,name]):name))),b=>b.toString(16).padStart(2,'0')).join('');
  if(auth.currentUser?.uid!==uid)throw new Error('A conta mudou; salvamento interrompido.');
- await setDoc(doc(db,'users',uid,'collections',id),{name,updatedAt:serverTimestamp()});
+ await setDoc(doc(db,'users',uid,'collections',id),{name,...(parent?{parent}:{}),updatedAt:serverTimestamp()});
 }
 export async function listCollections(){
  if(!db||!auth?.currentUser)return [];
- return (await getDocs(collection(db,'users',auth.currentUser.uid,'collections'))).docs.map(d=>d.data().name).filter((name):name is string=>typeof name==='string'&&name.length>0&&name.length<=60);
+ return (await getDocs(collection(db,'users',auth.currentUser.uid,'collections'))).docs.filter(d=>!d.data().parent).map(d=>d.data().name).filter((name):name is string=>typeof name==='string'&&name.length>0&&name.length<=60);
+}
+
+export async function listProjectFolders(){
+ if(!db||!auth?.currentUser)return [];
+ return (await getDocs(collection(db,'users',auth.currentUser.uid,'collections'))).docs.map(d=>d.data()).filter(d=>typeof d.parent==='string'&&d.parent.length>0&&typeof d.name==='string').map(d=>({parent:d.parent as string,name:d.name as string}));
 }

@@ -23,6 +23,7 @@ export function cleanProject(input: unknown): Project {
     id: typeof p.id === 'string' && /^[\w-]{1,80}$/.test(p.id) ? p.id : crypto.randomUUID(),
     name: p.name,
     folder: typeof p.folder === 'string' ? p.folder.slice(0,60) : '',
+    subfolder: typeof p.subfolder === 'string' && p.folder ? p.subfolder.slice(0,60) : '',
     updatedAt: typeof p.updatedAt === 'number' && Number.isFinite(p.updatedAt) ? p.updatedAt : Date.now(),
     nodes: p.nodes.map((n: FlowNode) => ({
       id: n.id, type: 'studio', position: n.position,
