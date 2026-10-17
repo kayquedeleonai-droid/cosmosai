@@ -1,5 +1,6 @@
 import {isMagnificGeneration,isSeedream,generationResolutions as availableResolutions,generationSwitch as switchModel,generationTask as buildTask} from './magnific-generation.mjs';
-import {reviewLabel,withMediaReview} from './review-status.mjs';
+import {nodeHistory,selectHistory,withNodeHistory,mergeGenerationHistory} from './node-history.mjs';
+import {reviewLabel} from './review-status.mjs';
 import {registerOrbi} from './orbi-bridge';
 import {applyWorkflowActions,workflowSignature} from './orbi-workflow.mjs';
 import {duplicateEmpty,emptyDuplicateTarget} from './duplicate-empty.mjs';
@@ -33,7 +34,7 @@ import { models, findModel, outputSize, qualityOptions, durationOptions, videoRe
 import {estimateCost,dollars} from './pricing.mjs';
 import {listCloudVersions} from './firebase';
 import CompareNode from './CompareNode';
-import {runwareConfigured, requestGeneration, waitGeneration} from './runware';
+import {accountRequest,runwareConfigured, requestGeneration, waitGeneration} from './runware';
 
 type Actions = {update:(id:string,patch:Partial<NodeData>)=>void; run:(id?:string)=>void; message:(text:string)=>void; running:boolean};
 const NodeActions=createContext<Actions>({update:()=>{},run:()=>{},message:()=>{},running:false});
@@ -76,6 +77,7 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
   const label=data.kind==='generate'?(data.model||'Nano Banana Pro'):data.kind==='video'?(data.model||'Seedance'):meta.label;
   function upload(file?:File){if(!file)return;if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>1500000){message('Use PNG, JPG ou WebP de até 1,5 MB.');return;}const reader=new FileReader();reader.onerror=()=>message('Não foi possível ler a imagem.');reader.onload=()=>update(id,{image:String(reader.result),result:undefined});reader.readAsDataURL(file);}
   const src=data.result||data.image;
+  const history=nodeHistory(data),historyIndex=history.findIndex(item=>item.url===src);
   const model=findModel(data.model||(data.kind==='video'?'Seedance 2.5':'Nano Banana Pro'));
   const resolution=data.resolution||(isSeedream(data.model)?'2K':undefined)||model?.defaultResolution||(data.kind==='video'?'720p':'1K');
   const quote=hasQuote(data.kind)?previewCost({...data,references:connections.filter(e=>e.target===id&&referenceIndex(e.targetHandle)>=0).map(()=>true)},model?.label):null;
@@ -116,6 +118,7 @@ function StudioNode({id,data,selected}:NodeProps<FlowNode>){
 
     {data.kind==='prompt'?<PromptInput images={images} id={id} value={data.prompt||''} disabled={running} onChange={prompt=>update(id,{prompt})}/>:['image','loadvideo'].includes(data.kind)?<>{src&&<div className="loaded-preview">{isVideo?<VideoPreview src={src} onShape={()=>{}}/>:<img src={src} alt={imageName({id,data})}/>}</div>}{(!src||isVideo)&&<LoadMedia video={isVideo} disabled={running} onLoaded={url=>update(id,{result:url,image:undefined,mediaType:isVideo?'video':'image'})} onError={message}/>}</>:
       <div className={`node-preview ratio-${(data.ratio||'1:1').replace(':','-')}`} style={hasModelInputs||isUpscale(data.kind)?{height:Math.max(430/aspect,slots*28+70)}:undefined}>{src?<>{isVideo?<VideoPreview src={src} onShape={ratio=>setMediaShape({src:src!,ratio})}/>:<img src={src} alt="Resultado do workflow" onLoad={e=>{const v=e.currentTarget;if(v.naturalWidth&&v.naturalHeight)setMediaShape({src:src!,ratio:v.naturalWidth/v.naturalHeight});}}/>}{src===DEMO_IMAGE&&<span className="preview-label">ILUSTRAÇÃO DEMONSTRATIVA</span>}</>:<span>{hasModelInputs?(promptConnected?'Pronto para gerar'+(imageConnected?' com imagem de referência':''):'Conecte um prompt para gerar'):data.kind==='output'?'Conecte uma imagem para visualizar':isUpscale(data.kind)?(isVideo?'Conecte um vídeo para ampliar':'Conecte uma imagem para ampliar'):'Conecte um prompt para gerar'}</span>}{(hasModelInputs||isUpscale(data.kind))&&busy&&<div className="cosmos-generating" role="status"><div className="cosmos-orbits" aria-hidden="true"><i/><i/><i/><b/></div><strong>{data.kind==='video'?'Criando seu vídeo':'Criando sua imagem'}</strong><span>{label} · {data.status?.startsWith('Aguardando')?'Processando no provedor':'Enviando geração'}</span></div>}</div>}
+    {history.length>1&&<div className="node-history nodrag nopan" aria-label="Histórico do node" onDoubleClick={e=>e.stopPropagation()}><button aria-label="Resultado anterior" title="Resultado anterior" disabled={running||historyIndex<=0} onClick={()=>update(id,selectHistory(data,historyIndex-1))}>‹</button><span aria-live="polite">{historyIndex+1}/{history.length}</span><button aria-label="Próximo resultado" title="Próximo resultado" disabled={running||historyIndex>=history.length-1} onClick={()=>update(id,selectHistory(data,historyIndex+1))}>›</button></div>}
     {(hasModelInputs||isUpscale(data.kind))&&((data.status&&data.status!=='Concluído'&&!busy)||data.pendingTask&&!busy)&&<div className="generation-status" role="status">{busy&&<LoaderCircle className="spin" size={13}/>}<span>{data.status||(data.pendingTask?'Geração pendente · clique para consultar':'')}</span></div>}
     {data.kind!=='prompt'&&data.kind!=='image'&&data.kind!=='loadvideo'&&<div className="node-controls nodrag">
       {data.kind==='generate'||data.kind==='video'?<><NodeSelect className="model-select" title={model?.label} aria-label={data.kind==='video'?'Modelo de vídeo':'Modelo de imagem'} value={model?.label||''} disabled={running||!!data.pendingTask} onChange={e=>changeModel(e.target.value)}>{models.filter(m=>m.kind===data.kind).map(m=><option key={m.id} value={m.label}>{m.label}</option>)}</NodeSelect><NodeSelect aria-label="Proporção da geração" value={data.ratio||(data.kind==='video'?'16:9':'1:1')} disabled={running||(data.kind==='video'&&data.videoInputMode!=='references'&&imageConnected)} title={data.kind==='video'&&data.videoInputMode!=='references'&&imageConnected?'A proporção segue o frame inicial':'Proporção da geração'} onChange={e=>{const ratio=e.target.value;const options=availableResolutions(model,ratio);update(id,{ratio,resolution:options.includes(resolution)?resolution:options[0]});}}>{Object.keys(model?.sizes||{'1:1':[],'16:9':[],'9:16':[]}).map(r=><option key={r}>{r}</option>)}</NodeSelect><NodeSelect className="resolution-select" aria-label="Resolução da geração" title="Resolução da geração" disabled={running} value={resolution} onChange={e=>update(id,{resolution:e.target.value})}>{availableResolutions(model,data.ratio||(data.kind==='video'?'16:9':'1:1')).filter(r=>!(data.videoInputMode==='references'&&model?.id.startsWith('bytedance:seedance'))||['480p','720p'].includes(r)).map(r=><option key={r} value={r}>{r}</option>)}</NodeSelect>{data.kind==='video'&&<NodeSelect aria-label="Duração do vídeo" value={data.duration||(model?.id.startsWith('minimax:')?'5':'4')} disabled={running} onChange={e=>update(id,{duration:e.target.value})}>{durationOptions(model).map(d=><option key={d} value={d}>{d} s</option>)}</NodeSelect>}{data.kind==='video'&&<NodeSelect className="video-input-mode" aria-label="Modo de entrada do vídeo" title="Frames definem início/fim; References guiam aparência. Os modos não se misturam." value={data.videoInputMode||'frames'} disabled={running||!!data.pendingTask} onChange={e=>changeInputMode(e.target.value)}><option value="frames">Frames</option>{!!videoReferenceLimit(model)&&<option value="references">References</option>}</NodeSelect>}<details className="node-settings"><summary aria-label="Configurações do modelo"><Settings2 size={14}/></summary><div><strong>{label}</strong><p>{isMagnificGeneration(data.model)?'Créditos Magnific · saldo separado da Runware':'Estimativa: '+(quote?dollars(quote.usd):'indisponível')}{quote?.variable?' · variável':''}</p>{data.cost&&<p>Última geração: {dollars(Number(data.cost))}</p>}{data.generatedModel&&src&&<p>Resultado: {data.generatedModel} · {data.generatedResolution}</p>}<p>{isVideo?(data.videoInputMode==='references'?'References guiam aparência e conteúdo, sem fixar início/fim.':'First frame inicia o vídeo; Last frame define o final. Não misture com References.'):`Até ${limit} imagens de referência. Use + para adicionar entradas.`}</p>{slots>1&&(data.kind!=='video'||data.videoInputMode==='references')&&<button disabled={running||!!data.pendingTask||connections.some(e=>e.target===id&&e.targetHandle===referenceHandle(slots-1))} onClick={()=>update(id,{referenceSlots:String(slots-1)})}>Remover última entrada vazia</button>}{qualityOptions(model).length>0&&<label>Qualidade<NodeSelect aria-label="Qualidade da geração" value={data.quality||'auto'} disabled={running||!!data.pendingTask} onChange={e=>update(id,{quality:e.target.value})}>{qualityOptions(model).map(q=><option key={q} value={q}>{{auto:'Automática',low:'Baixa',medium:'Média',high:'Alta',xhigh:'Muito alta',max:'Máxima'}[q as string]||q}</option>)}</NodeSelect></label>}<p>Geração pela {isMagnificGeneration(data.model)?'Magnific':'Runware'}. Consome créditos da conta conectada.</p><span>{resolution} · {data.kind==='video'&&data.videoInputMode!=='references'&&imageConnected?'proporção do frame inicial':isMagnificGeneration(data.model)?'Magnific':size?.join(' × ')+' px'}</span><p>Resoluções maiores podem consumir mais créditos.</p></div></details></>:isUpscale(data.kind)?<MagnificControls data={data} disabled={running||!!data.pendingTask} update={patch=>update(id,patch)}/>:<span className="node-state">{data.status||'Saída de mídia'}</span>}
@@ -172,6 +175,21 @@ function Canvas({isAdmin,storageScope,initial,folders,projectFolders,onBack,onSa
 
   const snapshot=useMemo(()=>cleanProject({...baseline.current,name,folder,subfolder,nodes,edges,coverImage,groups:nodeGroups,updatedAt:Date.now()}),[name,folder,subfolder,nodes,edges,nodeGroups,coverImage]);
   const latest=useRef(snapshot);latest.current=snapshot;
+  useEffect(()=>{
+    if(!signedIn)return;
+    let cancelled=false;
+    void (async()=>{
+      const jobs:any[]=[];
+      for(let offset=0;offset<300;offset+=30){
+        const page=await accountRequest('history',{projectId:initial.id,offset});
+        if(cancelled)return;
+        jobs.push(...page.jobs);
+        if(page.jobs.length<30)break;
+      }
+      if(!cancelled)setNodes(current=>current.map(n=>({...n,data:mergeGenerationHistory(n.data,jobs.filter(j=>j.nodeId===n.id))})));
+    })().catch(()=>{/* Saved node history stays available offline. */});
+    return()=>{cancelled=true;};
+  },[signedIn,initial.id,setNodes]);
   const selectedNodes=nodes.filter(n=>n.selected);
   const active=selectedNodes[0];
   useEffect(()=>{const handler=(e:KeyboardEvent)=>{if(running||groupDialog||e.ctrlKey||e.metaKey||e.altKey||(e.target as HTMLElement).closest('input,textarea,select,[contenteditable],dialog,[role=dialog]'))return;const key=e.key.toLowerCase();if(key==='k'){e.preventDefault();setCanvasMode('knife');setMenu(null);}if(key==='c'){e.preventDefault();if(selectedNodes.length!==1)return message('Selecione um único node para conectar.');const connection=nearestConnection(selectedNodes[0].id,nodes,edges);if(!connection)return message('Nenhuma entrada compatível livre encontrada.');setEdges(es=>addEdge(connection,es));}};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);},[nodes,edges,running,groupDialog]);
@@ -224,7 +242,7 @@ function Canvas({isAdmin,storageScope,initial,folders,projectFolders,onBack,onSa
     }})();return()=>controller.abort();
   },[signedIn]);
 
-  const update=useCallback((id:string,patch:Partial<NodeData>)=>setNodes(ns=>{const original=ns.find(n=>n.id===id);const oldName=original?imageName(original):'';return ns.map(n=>{if(n.id===id)return {...n,data:withMediaReview(n.data,patch)};if(patch.imageName&&n.data.kind==='prompt'&&n.data.prompt)return {...n,data:{...n.data,prompt:renameMention(n.data.prompt,oldName,patch.imageName)}};return n;});}),[setNodes]);
+  const update=useCallback((id:string,patch:Partial<NodeData>)=>setNodes(ns=>{const original=ns.find(n=>n.id===id);const oldName=original?imageName(original):'';return ns.map(n=>{if(n.id===id)return {...n,data:withNodeHistory(n.data,patch)};if(patch.imageName&&n.data.kind==='prompt'&&n.data.prompt)return {...n,data:{...n.data,prompt:renameMention(n.data.prompt,oldName,patch.imageName)}};return n;});}),[setNodes]);
   useEffect(()=>{
     const prepareUpdate=(event:Event)=>{if(runLock.current||!onSave(latest.current))event.preventDefault();};
     window.addEventListener('cosmos:before-update',prepareUpdate);
@@ -378,7 +396,7 @@ function Canvas({isAdmin,storageScope,initial,folders,projectFolders,onBack,onSa
           if(result.state==='processing')result=await waitGeneration(requestId,controller.signal,()=>update(n.id,{status:(isUpscale(n.data.kind)||isMagnificGeneration(n.data.model))?'Aguardando Magnific…':'Aguardando Runware…'}));
           if(result.state==='error'){update(n.id,{pendingTask:undefined});throw new Error(result.error||'Falha na geração.');}
           if(!result.url)throw new Error('Resultado ainda indisponível. Consulte a pendência.');
-          output={url:result.url,mediaType:result.mediaType||'image'};update(n.id,{pendingTask:undefined,cost:result.cost!=null?String(result.cost):undefined,generatedModel:isUpscale(n.data.kind)?upscaleModel(n.data):n.data.model||'Nano Banana Pro',generatedResolution:isUpscale(n.data.kind)?String(n.data.kind==='upscalevideo'?(n.data.topazResolution||'2k'):(n.data.upscaleFactor||'2x')):n.data.resolution||findModel(n.data.model)?.defaultResolution||(n.data.kind==='video'?'720p':'1K')});
+          output={url:result.url,mediaType:result.mediaType||'image'};update(n.id,{result:result.url,mediaType:result.mediaType||'image',pendingTask:undefined,cost:result.cost!=null?String(result.cost):undefined,generatedModel:isUpscale(n.data.kind)?upscaleModel(n.data):n.data.model||'Nano Banana Pro',generatedResolution:isUpscale(n.data.kind)?String(n.data.kind==='upscalevideo'?(n.data.topazResolution||'2k'):(n.data.upscaleFactor||'2x')):n.data.resolution||findModel(n.data.model)?.defaultResolution||(n.data.kind==='video'?'720p':'1K')});
         }else if(n.data.kind==='compare'){const selected=edges.find(e=>e.target===n.id&&e.targetHandle===(n.data.compareOutput||'a'))?.source;output=selected?values.get(selected)!:undefined!;}else output=input!;
         if(!output?.url)throw new Error('A entrada não retornou mídia.');
         values.set(n.id,output);update(n.id,{status:'Concluído',...(n.data.kind!=='prompt'?{result:output.url,mediaType:output.mediaType}:{})});

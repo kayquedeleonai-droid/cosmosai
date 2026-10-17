@@ -28,7 +28,7 @@ export function cleanProject(input: unknown): Project {
     nodes: p.nodes.map((n: FlowNode) => ({
       id: n.id, type: 'studio', position: n.position,
       data: Object.fromEntries(Object.entries(n.data).filter(([key, value]) =>
-        ['reviewStatus','psSlots','flavor','sharpen','smartGrain','ultraDetail','topazResolution','targetFps','interpolation','noise','upscaleFactor','upscaleStyle','creativity','hdr','resemblance','fractality','kind','imageName','videoInputMode','referenceSlots','prompt','image','result','model','ratio','quality','resolution','duration','mediaType','pendingTask','cost','generatedModel','generatedResolution','compareMode','compareSplit','compareOutput'].includes(key) && typeof value === 'string')),
+        ['mediaHistory','reviewStatus','psSlots','flavor','sharpen','smartGrain','ultraDetail','topazResolution','targetFps','interpolation','noise','upscaleFactor','upscaleStyle','creativity','hdr','resemblance','fractality','kind','imageName','videoInputMode','referenceSlots','prompt','image','result','model','ratio','quality','resolution','duration','mediaType','pendingTask','cost','generatedModel','generatedResolution','compareMode','compareSplit','compareOutput'].includes(key) && typeof value === 'string')),
     })) as FlowNode[],
     edges: p.edges.map((e: Project['edges'][number]) => ({ id:e.id, source:e.source, target:e.target, ...(e.targetHandle?{targetHandle:e.targetHandle}:{}) })),
   };

@@ -1,3 +1,4 @@
+import {readNodeHistory} from './node-history.mjs';
 import {reviewStatuses} from './review-status.mjs';
 import {isLocalMedia} from './local-media.mjs';
 import {safeMedia,referenceIndex,referenceSlots} from './runware-models.mjs';
@@ -51,6 +52,7 @@ export function validateProject(value) {
   if (!value || value.version !== 1 || typeof value.name !== 'string' || value.name.length > 120 || !Array.isArray(value.nodes) || !Array.isArray(value.edges) || value.nodes.length > 100 || value.edges.length > 200) throw new Error('Arquivo de projeto inválido.');
   for (const n of value.nodes) {
     if (typeof n.id !== 'string' || !Object.hasOwn(catalog,n.data?.kind) || !Number.isFinite(n.position?.x) || !Number.isFinite(n.position?.y)) throw new Error('Node inválido.');
+    if(n.data.mediaHistory!=null)readNodeHistory(n.data.mediaHistory);
     if(n.data.reviewStatus!=null&&!reviewStatuses.some(s=>s.value===n.data.reviewStatus))throw new Error('Status de revisão inválido.');
     if(n.data.videoInputMode!=null&&(n.data.kind!=='video'||!['frames','references'].includes(n.data.videoInputMode)))throw new Error('Modo de entrada inválido.');
     if(n.data.referenceSlots!=null&&(typeof n.data.referenceSlots!=='string'||!/^([1-9]|[12][0-9]|30)$/.test(n.data.referenceSlots)||Number(n.data.referenceSlots)>referenceSlots(n.data)))throw new Error('Quantidade de referências inválida.');

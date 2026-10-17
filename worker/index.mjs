@@ -85,7 +85,9 @@ export default {
    }
    if(path==='/history'){
     const offset=Number.isInteger(input.offset)&&input.offset>=0?Math.min(input.offset,100000):0;
-    const jobs=await env.DB.prepare('SELECT id,state,result,created,model,metadata,reserved,actual,projectId,nodeId FROM jobs WHERE uid=? ORDER BY created DESC LIMIT 30 OFFSET ?').bind(uid,offset).all();
+    const projectId=typeof input.projectId==='string'?input.projectId.slice(0,80):'';
+    const query='SELECT id,state,result,created,model,metadata,reserved,actual,projectId,nodeId FROM jobs WHERE uid=?'+(projectId?' AND projectId=?':'')+' ORDER BY created DESC LIMIT 30 OFFSET ?';
+    const jobs=await env.DB.prepare(query).bind(...(projectId?[uid,projectId,offset]:[uid,offset])).all();
     return reply({jobs:jobs.results.map(j=>({...j,result:j.result?JSON.parse(j.result):null,metadata:j.metadata?JSON.parse(j.metadata):null}))});
    }
    if(!['/generate','/status'].includes(path))return reply({error:'Endpoint inválido.'},404);
