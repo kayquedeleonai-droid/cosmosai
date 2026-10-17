@@ -1,7 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {magnificGenerationTask,generationEndpoint,jobUsesMagnific} from '../src/magnific-generation.mjs';
-import {createMagnific,pollMagnific} from '../worker/magnific.mjs';
+import {createMagnific,pollMagnific,readMagnific} from '../worker/magnific.mjs';
+import {safeMedia} from '../src/runware-models.mjs';
+
+test('GPT results accept the Magnific CDN without accepting lookalike or unsafe URLs',()=>{
+ const url='https://cdn-magnific.freepik.com/generated/result.png?signature=test';
+ assert.deepEqual(readMagnific({data:{status:'COMPLETED',generated:[url]}},'GPT Image 2.5 Sunburst'),{state:'success',url,mediaType:'image'});
+ for(const value of ['http://cdn-magnific.freepik.com/result.png','https://cdn-magnific.freepik.com.evil.test/result.png','https://user:password@cdn-magnific.freepik.com/result.png','https://evil.test/result.png'])assert.equal(safeMedia(value),false);
+ const rejected=readMagnific({data:{status:'COMPLETED',generated:['https://evil.test/image.png?private=secret']}});
+ assert.equal(rejected.mediaHost,'evil.test');assert.equal(JSON.stringify(rejected).includes('secret'),false);
+});
 test('generation payloads keep model variants, reference order and provider resolution limits',()=>{
  const input={model:'GPT Image 2.5 Sunburst',prompt:'A vase',resolution:'4K',ratio:'16:9',quality:'max',references:['data:image/png;base64,AAAA','https://im.runware.ai/ref.png']};
  const task=magnificGenerationTask(input);

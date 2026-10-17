@@ -7,7 +7,10 @@ export function readMagnific(body,model){
  if(['FAILED','ERROR','CANCELLED'].includes(data?.status))return {state:'error',error:'Magnific não concluiu a geração. Confira a imagem e os créditos da conta Magnific.'};
  if(data?.status==='COMPLETED'){
   const url=data.generated?.[0];
-  if(!safeMedia(url))return {state:'error',error:'Magnific retornou uma mídia não reconhecida.'};
+  if(!safeMedia(url)){
+   let mediaHost;try{mediaHost=new URL(typeof url==='string'?url:url?.url).hostname;}catch{/* Record shape only; never log signed URLs or image content. */}
+   return {state:'error',error:'Magnific retornou uma mídia não reconhecida.',mediaHost,mediaShape:typeof url==='object'&&url?Object.keys(url).slice(0,10):typeof url};
+  }
   return {state:'success',url,mediaType:topazModels.includes(model)?'video':'image'};
  }
  return {state:'processing'};

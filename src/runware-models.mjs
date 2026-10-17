@@ -94,7 +94,7 @@ export function collectReferences(node,edges,values){
 }
 export function safeMedia(value) {
   if(typeof value!=='string')return false;
-  try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(u.hostname==='im.runware.ai'||u.hostname==='vm.runware.ai'||u.hostname==='assets.runware.ai'||u.hostname==='mm.runware.ai'||u.hostname==='ai-statics.freepik.com'||u.hostname==='ai-statics.magnific.com');}catch{return false;}
+  try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(u.hostname==='im.runware.ai'||u.hostname==='vm.runware.ai'||u.hostname==='assets.runware.ai'||u.hostname==='mm.runware.ai'||u.hostname==='ai-statics.freepik.com'||u.hostname==='ai-statics.magnific.com'||u.hostname==='cdn-magnific.freepik.com');}catch{return false;}
 }
 export function validReference(value) {return typeof value==='string'&&(safeMedia(value)||/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value))&&value.length<=2100000;}
 export function buildTask(input,taskUUID) {
