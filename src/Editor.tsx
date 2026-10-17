@@ -241,12 +241,14 @@ function Canvas({isAdmin,storageScope,initial,folders,projectFolders,onBack,onSa
   async function dropFiles(event:React.DragEvent){
     if(!event.dataTransfer.types.includes('Files'))return;
     event.preventDefault();event.stopPropagation();setFileHover(false);
+    await importCanvasFiles(Array.from(event.dataTransfer.files),{x:event.clientX,y:event.clientY});
+  }
+  async function importCanvasFiles(files:File[],screenPoint:{x:number;y:number}){
     if(dropLock.current){message('Aguarde o envio das imagens anteriores.');return;}
-    const files=Array.from(event.dataTransfer.files);
     const room=100-latest.current.nodes.length;
     if(room<=0){message('Limite de 100 nodes por workflow.');return;}
     if(files.length>room){message('Não há espaço para todos os arquivos. Limite de 100 nodes por workflow.');return;}
-    const point=screenToFlowPosition({x:event.clientX,y:event.clientY});
+    const point=screenToFlowPosition(screenPoint);
     dropLock.current=true;setDropping(true);setMenu(null);
     let count=0;
     try{
@@ -269,6 +271,52 @@ function Canvas({isAdmin,storageScope,initial,folders,projectFolders,onBack,onSa
       }
     }finally{dropLock.current=false;if(canvasAlive.current)setDropping(false);}
   }
+  useEffect(()=>{
+    const editing=(target:EventTarget|null)=>target instanceof HTMLElement&&!!target.closest('input,textarea,select,[contenteditable],dialog,[role=dialog]');
+    const copy=(event:ClipboardEvent)=>{
+      if(editing(event.target)||window.getSelection()?.toString()||groupDialog||versions)return;
+      const ids=new Set(nodes.filter(n=>n.selected).map(n=>n.id));
+      if(!ids.size||!event.clipboardData)return;
+      const project=latest.current;
+      const payload={...project,nodes:project.nodes.filter(n=>ids.has(n.id)),edges:project.edges.filter(e=>ids.has(e.source)&&ids.has(e.target)),groups:[]};
+      event.clipboardData.setData('text/plain','COSMOS_NODES_V1\n'+JSON.stringify(payload));
+      event.preventDefault();
+    };
+    const paste=(event:ClipboardEvent)=>{
+      if(editing(event.target)||groupDialog||versions||!event.clipboardData)return;
+      const rect=document.querySelector('.flow-canvas')?.getBoundingClientRect();
+      if(!rect)return;
+      const screenPoint={x:rect.left+rect.width/2,y:rect.top+rect.height/2};
+      const files=Array.from(event.clipboardData.files);
+      if(files.length){event.preventDefault();void importCanvasFiles(files,screenPoint);return;}
+      const text=event.clipboardData.getData('text/plain');
+      if(!text.trim())return;
+      event.preventDefault();
+      try{
+        const point=screenToFlowPosition(screenPoint);
+        if(text.startsWith('COSMOS_NODES_V1\n')){
+          const copied=cleanProject(JSON.parse(text.slice('COSMOS_NODES_V1\n'.length)));
+          if(!copied.nodes.length)return;
+          if(nodes.length+copied.nodes.length>100||edges.length+copied.edges.length>200)throw new Error('Limite de 100 nodes e 200 conexões por workflow.');
+          const ids=new Map(copied.nodes.map(n=>[n.id,crypto.randomUUID()]));
+          const left=Math.min(...copied.nodes.map(n=>n.position.x)),top=Math.min(...copied.nodes.map(n=>n.position.y));
+          const additions=copied.nodes.map(n=>{
+            const data={...n.data};delete data.pendingTask;delete data.status;
+            return {...n,id:ids.get(n.id)!,selected:true,position:{x:point.x+n.position.x-left,y:point.y+n.position.y-top},data};
+          });
+          setNodes(current=>nameMediaNodes([...current.map(n=>({...n,selected:false})),...additions]) as FlowNode[]);
+          setEdges(current=>[...current,...copied.edges.map(e=>({...e,id:crypto.randomUUID(),source:ids.get(e.source)!,target:ids.get(e.target)!}))]);
+        }else{
+          if(nodes.length>=100)throw new Error('Limite de 100 nodes por workflow.');
+          if(text.length>3000)throw new Error('Cole textos de até 3000 caracteres em um Prompt.');
+          setNodes(current=>[...current.map(n=>({...n,selected:false})),{id:crypto.randomUUID(),type:'studio',position:point,selected:true,data:{kind:'prompt',prompt:text}}]);
+        }
+        setMenu(null);setImageMenu(null);
+      }catch(error){message((error as Error).message);}
+    };
+    window.addEventListener('copy',copy);window.addEventListener('paste',paste);
+    return()=>{window.removeEventListener('copy',copy);window.removeEventListener('paste',paste);};
+  },[nodes,edges,groupDialog,versions,screenToFlowPosition]);
   useEffect(()=>{
     const removeSelected=(event:KeyboardEvent)=>{
       if(event.key.toLowerCase()!=='x'||event.repeat||event.isComposing||event.ctrlKey||event.metaKey||event.altKey||running||menu||groupDialog||imageMenu)return;
