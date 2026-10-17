@@ -17,6 +17,7 @@ export function cleanProject(input: unknown): Project {
   p.nodes=named.map((n:FlowNode)=>n.data.model==='Seedream 5.0 Pro'&&!n.data.pendingTask&&!['1.5K','2K'].includes(n.data.resolution||'')?{...n,data:{...n.data,resolution:'2K'}}:n);
   return {
     version: 1,
+    ...(typeof p.deletedAt==='number'&&Number.isFinite(p.deletedAt)&&p.deletedAt>0?{deletedAt:p.deletedAt}:{}),
     ...(validCover(p.coverImage)?{coverImage:p.coverImage}:{}),
     groups: cleanGroups(p.groups,p.nodes),
     id: typeof p.id === 'string' && /^[\w-]{1,80}$/.test(p.id) ? p.id : crypto.randomUUID(),

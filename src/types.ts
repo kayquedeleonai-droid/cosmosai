@@ -30,6 +30,7 @@ export type NodeData = {
 export type FlowNode = Node<NodeData>;
 export type NodeGroup = {id:string;name:string;color:string;nodeIds:string[]};
 export type Project = {
+  deletedAt?: number;
   coverImage?: string;
   groups?: NodeGroup[];
   version: 1;
