@@ -247,3 +247,7 @@ body:has(.pwa-controls button) .cosmos-assistant{bottom:72px}body:has(.pwa-contr
 .node-history button:hover:not(:disabled){background:#ffffff18;color:#09bfd5}.node-history button:disabled{opacity:.3}.node-history span{font-size:9px;min-width:26px;text-align:center;font-variant-numeric:tabular-nums}
 @media(hover:none),(pointer:coarse){.node-history{opacity:1;pointer-events:auto}}
 @media(prefers-reduced-motion:reduce){.node-history{transition:none}}
+
+.loaded-preview.loaded-image-preview{height:auto}.loaded-image-preview>img{display:block;width:100%;height:auto}
+
+.image-node-menu{max-height:calc(100dvh - 16px);overflow-y:auto}

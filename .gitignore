@@ -12,3 +12,5 @@ artifacts/
 cosmos-preview.png
 .wrangler/
 .dev.vars
+
+/public/cosmos-photoshop-plugin.zip

@@ -1,0 +1,46 @@
+COSMOS SELECTION — primeira versão para Photoshop no Windows
+
+INSTALAÇÃO
+1. Extraia todo este ZIP em uma pasta permanente.
+2. Instale Node.js 20 ou mais recente (https://nodejs.org) se ainda não tiver.
+3. Execute iniciar-conector.cmd. Mantenha a janela aberta e copie o código mostrado.
+4. Instale o UXP Developer Tool pelo Creative Cloud. No Photoshop, ative
+   Preferences > Plugins > Enable Developer Mode, se solicitado.
+5. No UXP Developer Tool, Add Plugin > selecione plugin/manifest.json > Load.
+6. No Photoshop, abra Plugins > Cosmos Selection.
+7. Cole o código do conector no plugin e clique em Verificar conexão.
+8. Abra seu workflow no Cosmos > botão Photoshop no topo > cole o mesmo código
+   > Conectar este workflow. Se o navegador pedir acesso à rede local, permita.
+
+USO
+- No Photoshop, faça uma seleção retangular sólida (sem feather) e clique
+  em Enviar seleção ao Cosmos. O composto visível entra como Load Image.
+- O recorte mantém as dimensões e coordenadas em pixels; não precisa ser quadrado.
+- Conecte esse Load Image como referência do node gerador. Use a mesma proporção.
+- Na imagem de resultado do Cosmos: botão direito > Enviar ao Photoshop.
+- No plugin: Trazer resultado como camada. O documento original deve estar ativo.
+- O resultado entra numa NOVA camada, nas coordenadas originais. Adicione uma
+  máscara no Photoshop para revelar somente o ajuste desejado. Ctrl+Z desfaz.
+
+LIMITES DESTA VERSÃO
+- Photoshop 25+ / versões recentes; primeira versão de desenvolvimento.
+- O teste real dentro do Photoshop precisa ser feito após carregar o plugin.
+- Documento RGB, transferência 8 bits/sRGB (não preserva HDR/16/32 bits).
+- Até 16 megapixels por recorte; o PNG importado no Cosmos deve caber em 20 MB.
+- A máscara/feather da seleção não é transferida: use uma seleção retangular sólida.
+- Se a IA alterar a resolução, o resultado é ajustado ao tamanho original.
+  Proporções diferentes são rejeitadas para evitar distorção.
+- Mantenha o Photoshop, o painel, o conector e o workflow abertos durante a sessão.
+  Não redimensione, recorte, rotacione ou altere a origem da tela do documento.
+  Mudança de dimensões é detectada; mudanças de conteúdo/origem com o mesmo tamanho
+  não podem ser detectadas automaticamente nesta versão.
+- Reabrir o documento, recarregar o plugin ou reiniciar o conector exige reenviar
+  a seleção. Isto evita aplicar em um documento que reutilizou um identificador.
+- Somente um workflow conectado por vez e uma transferência pendente por direção.
+- O código é temporário: não compartilhe. Os pixels passam apenas por 127.0.0.1.
+- O conector não executa scripts recebidos, não abre arquivos arbitrários e não
+  envia recortes para provedores. Geração de IA continua sendo uma ação no Cosmos.
+- Os nodes e coordenadas são salvos no workflow; arquivos locais dependem deste
+  dispositivo, como os demais Load Images do Cosmos.
+
+Referência oficial: https://developer.adobe.com/photoshop/uxp/2022/ps-reference/media/imaging

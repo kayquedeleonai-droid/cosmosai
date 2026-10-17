@@ -7,6 +7,6 @@ export function detachImage(nodes,edges,id,newId){
  const name=imageName(original);
  const data={...original.data};delete data.result;delete data.image;delete data.status;delete data.reviewStatus;delete data.cost;delete data.generatedModel;delete data.generatedResolution;
  data.imageName=`Gerador ${id.slice(0,8)}`;
- const detached={id:newId,type:'studio',position:{x:original.position.x+480,y:original.position.y},selected:true,data:{kind:'image',result:src,mediaType:'image',imageName:name,...(original.data.reviewStatus?{reviewStatus:original.data.reviewStatus}:{})}};
+ const detached={id:newId,type:'studio',position:{x:original.position.x+480,y:original.position.y},selected:true,data:{kind:'image',result:src,mediaType:'image',imageName:name,...(original.data.psCrop?{psCrop:original.data.psCrop}:{}),...(original.data.reviewStatus?{reviewStatus:original.data.reviewStatus}:{})}};
  return {nodes:[...nodes.map(n=>n.id===id?{...n,selected:false,data}:{...n,selected:false}),detached],edges:edges.map(e=>e.source===id?{...e,source:newId}:e)};
 }

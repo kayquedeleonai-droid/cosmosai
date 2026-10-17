@@ -1,12 +1,14 @@
+import {readCrop} from './photoshop-crop.mjs';
 import {safeMedia} from './runware-models.mjs';
 import {withMediaReview} from './review-status.mjs';
 export const historyKinds=['generate','video','upscale','upscalevideo'];
-const fields=['url','mediaType','generatedModel','generatedResolution','cost','reviewStatus'];
+const fields=['url','mediaType','generatedModel','generatedResolution','cost','reviewStatus','psCrop'];
 export function readNodeHistory(value){
  if(!value)return [];
  if(typeof value!=='string'||value.length>200000)throw new Error('Histórico do node inválido.');
  const rows=JSON.parse(value);
  if(!Array.isArray(rows)||rows.length>50||rows.some(r=>!r||!safeMedia(r.url)||fields.some(k=>r[k]!=null&&typeof r[k]!=='string')||!['image','video'].includes(r.mediaType)))throw new Error('Histórico do node inválido.');
+ for(const row of rows)if(row.psCrop)readCrop(row.psCrop);
  return rows.map(r=>Object.fromEntries(fields.filter(k=>typeof r[k]==='string').map(k=>[k,r[k]])));
 }
 const entry=data=>({url:data.result,mediaType:data.mediaType||(['video','upscalevideo'].includes(data.kind)?'video':'image'),...Object.fromEntries(fields.slice(2).filter(k=>typeof data[k]==='string').map(k=>[k,data[k]]))});
@@ -28,7 +30,7 @@ export function withNodeHistory(data,patch){
 export function selectHistory(data,index){
  const rows=nodeHistory(data),item=rows[index];
  if(!item)throw new Error('Resultado não encontrado.');
- return {result:item.url,mediaType:item.mediaType,generatedModel:item.generatedModel,generatedResolution:item.generatedResolution,cost:item.cost,reviewStatus:item.reviewStatus||'',mediaHistory:JSON.stringify(rows)};
+ return {result:item.url,mediaType:item.mediaType,generatedModel:item.generatedModel,generatedResolution:item.generatedResolution,cost:item.cost,reviewStatus:item.reviewStatus||'',psCrop:item.psCrop,mediaHistory:JSON.stringify(rows)};
 }
 export function mergeGenerationHistory(data,jobs){
  if(!historyKinds.includes(data.kind))return data;
