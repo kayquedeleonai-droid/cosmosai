@@ -8,5 +8,5 @@ export function resolveImage(id,nodes,edges,seen=new Set()) {
     const edge=edges.find(e=>e.target===id&&e.targetHandle===(node.data.compareOutput||'a'));
     return edge?resolveImage(edge.source,nodes,edges,seen):undefined;
   }
-  return node.data.kind==='image'?node.data.image:node.data.result;
+  return node.data.result||node.data.image;
 }

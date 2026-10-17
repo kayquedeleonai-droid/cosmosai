@@ -13,7 +13,7 @@ export default function CompareNode({id,data,selected,update,running}:{id:string
   const image=(url:string,label:string,style?:React.CSSProperties)=><img src={url} alt={`Imagem ${label}`} draggable={false} style={style} onError={()=>setFailed(old=>old.includes(url)?old:[...old,url])}/>;
   const ready=a&&b&&!failed.includes(a)&&!failed.includes(b);
   return <article className={`studio-node node-compare ${selected?'selected':''}`} style={{'--node-accent':'#06bdd5'} as React.CSSProperties}>
-    <div className="node-title"><span/>Comparar<small>SEM CRÉDITOS</small></div>
+    <div className="node-title"><span/>Compare<small>SEM CRÉDITOS</small></div>
     <div className="model-inputs">
       {(['a','b'] as const).map((port,i)=><div className="model-input-row" key={port}><Handle id={port} type="target" position={Position.Left} title={`Entrada Imagem ${port.toUpperCase()}`} aria-label={`Entrada Imagem ${port.toUpperCase()}`} className={`image-port ${edges.some(e=>e.target===id&&e.targetHandle===port)?'port-connected':''}`} style={{top:22+i*34}}/><span>Imagem {port.toUpperCase()}</span><small>{(port==='a'?a:b)?'Pronta':'Conecte uma imagem'}</small></div>)}
       <div className="model-input-row model-output-row"><small>Saída</small><label className="nodrag">Imagem <NodeSelect aria-label="Imagem de saída" disabled={running} value={data.compareOutput||'a'} onChange={e=>update(id,{compareOutput:e.target.value})}><option value="a">A</option><option value="b">B</option></NodeSelect></label><Handle type="source" position={Position.Right} title="Saída de imagem selecionada" aria-label="Saída de imagem selecionada" className={`image-port ${edges.some(e=>e.source===id)?'port-connected':''}`} style={{top:90}}/></div>

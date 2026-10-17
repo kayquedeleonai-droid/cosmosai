@@ -5,6 +5,13 @@ import {resolveImage} from '../src/compare.mjs';
 const node=(id,kind,extra={})=>({id,position:{x:0,y:0},data:{kind,...extra}});
 const nodes=[node('a','image',{image:'data:image/png;base64,YQ=='}),node('b','generate',{result:'/demo-landscape.svg'}),node('c','compare'),node('p','prompt'),node('v','video'),node('d','compare')];
 const edges=[{id:'a-c',source:'a',target:'c',targetHandle:'a'},{id:'b-c',source:'b',target:'c',targetHandle:'b'}];
+
+test('Load Image comparisons prefer the current imported or pasted image over legacy content',()=>{
+ const local='/__cosmos_media/12345678-1234-1234-1234-123456789abc';
+ const updated=nodes.map(n=>n.id==='a'?{...n,data:{...n.data,result:local}}:n);
+ assert.equal(resolveImage('c',updated,edges),local);
+ assert.equal(resolveImage('c',updated.map(n=>n.id==='a'?{...n,data:{...n.data,result:'https://cdn-magnific.freepik.com/new.png'}}:n),edges),'https://cdn-magnific.freepik.com/new.png');
+});
 test('comparison has two independent image-only inputs and rejects cycles',()=>{
   assert.equal(validConnection(edges[0],nodes,[]),true);
   assert.equal(validConnection(edges[1],nodes,[edges[0]]),true);
