@@ -4,6 +4,14 @@ import {magnificGenerationTask,generationEndpoint,jobUsesMagnific} from '../src/
 import {createMagnific,pollMagnific,readMagnific} from '../worker/magnific.mjs';
 import {safeMedia} from '../src/runware-models.mjs';
 
+test('provider failures retain the actual reason without suggesting an unverified credit problem',()=>{
+ const failed=readMagnific({data:{status:'FAILED',error:{message:'Invalid reference image',code:'INVALID_IMAGE'}}});
+ assert.equal(failed.error,'Magnific: Invalid reference image');assert.equal(failed.providerCode,'INVALID_IMAGE');
+ const unspecified=readMagnific({data:{status:'FAILED',generated:[]}});
+ assert.match(unspecified.error,/não informou o motivo/);assert.equal(unspecified.error.includes('créditos'),false);
+ assert.equal(readMagnific({data:{status:'FAILED',message:'Failed at https://example.com/private?token=secret'}}).error.includes('secret'),false);
+});
+
 test('GPT results accept the Magnific CDN without accepting lookalike or unsafe URLs',()=>{
  const url='https://cdn-magnific.freepik.com/generated/result.png?signature=test';
  assert.deepEqual(readMagnific({data:{status:'COMPLETED',generated:[url]}},'GPT Image 2.5 Sunburst'),{state:'success',url,mediaType:'image'});

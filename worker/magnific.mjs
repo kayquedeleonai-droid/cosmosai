@@ -4,7 +4,11 @@ import {safeMedia} from '../src/runware-models.mjs';
 const endpoint=(model,edit=false)=>'https://api.magnific.com/v1/ai/'+(isMagnificGeneration(model)?generationEndpoint(model,edit):magnificEndpoint(model));
 export function readMagnific(body,model){
  const data=body?.data;
- if(['FAILED','ERROR','CANCELLED'].includes(data?.status))return {state:'error',error:'Magnific não concluiu a geração. Confira a imagem e os créditos da conta Magnific.'};
+ if(['FAILED','ERROR','CANCELLED'].includes(data?.status)){
+  const raw=[data.error?.message,data.error?.detail,data.error,data.message,data.error_message,body?.message].find(value=>typeof value==='string'&&value.trim());
+  const detail=raw?.replace(/https?:\/\/\S+/g,'[endereço omitido]').slice(0,400);
+  return {state:'error',error:detail?'Magnific: '+detail:'Magnific marcou a geração como '+data.status+' e não informou o motivo. Consulte o histórico da Magnific antes de gerar novamente.',providerStatus:data.status,...(typeof data.error?.code==='string'?{providerCode:data.error.code.slice(0,80)}:{}),...(!detail?{providerFields:Object.keys(data).slice(0,20)}:{})};
+ }
  if(data?.status==='COMPLETED'){
   const url=data.generated?.[0];
   if(!safeMedia(url)){
